@@ -1,0 +1,12 @@
+# Секреты и локальные файлы — никогда не коммитим
+.env
+bot_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Notebooks
+.ipynb_checkpoints/
