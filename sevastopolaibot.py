@@ -20,6 +20,7 @@ import json
 import logging
 import math
 import os
+import random
 import urllib.parse
 from datetime import datetime
 
@@ -28,6 +29,7 @@ import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -68,6 +70,12 @@ SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D
 
 # Telegram ID владельца — кому доступна команда /admin
 ADMIN_ID = int(os.getenv("ADMIN_ID", "6106999216"))
+
+# Ссылка на Telegram-канал с новостями города (кнопка «📰 Новости города»).
+# Рассылок по личкам не делаем — новости публикуются в этом канале.
+NEWS_CHANNEL_URL = os.getenv("NEWS_CHANNEL_URL", "https://t.me/Sevastopol_AI").strip()
+if not NEWS_CHANNEL_URL.startswith(("http://", "https://")):
+    NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
 
 # Как часто перечитывать таблицу (секунды)
 REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "600"))
@@ -318,6 +326,53 @@ async def process_referral(new_user_id, referrer_id):
     save_state()
 
 
+# ── XP за активность ─────────────────────────────────────────────────────
+# Сколько XP даёт каждое действие. Одно и то же действие даёт XP
+# не чаще одного раза в день — можно не спамить меню ради очков.
+XP_ACTIVITY_REWARDS = {
+    "BTN_MAIN_MENU": 1,
+    "BTN_FOOD": 3,
+    "BTN_LOCATIONS": 3,
+    "BTN_ROUTES": 3,
+    "BTN_EVENTS": 3,
+    "NEARBY_FOOD": 2,
+    "GEO_FIND": 2,
+    "SUGGEST_PLACE": 5,
+}
+
+
+def award_activity_xp(user, action: str) -> int:
+    """Даёт XP за активное действие. Возвращает сколько XP реально добавлено."""
+    amount = XP_ACTIVITY_REWARDS.get(action)
+    if amount is None:
+        return 0
+    create_passport_if_not_exists(user)
+    passport = PASSPORTS[user.id]
+    today = datetime.now().strftime("%Y-%m-%d")
+    daily = passport.setdefault("daily_xp", {})
+    # чистим старые дни, чтобы bot_state.json не разрастался
+    for old_day in [d for d in daily if d < today]:
+        daily.pop(old_day, None)
+    day_actions = daily.get(today, {})
+    if action in day_actions:
+        return 0  # сегодня за это действие XP уже давали
+    day_actions[action] = amount
+    daily[today] = day_actions
+    passport["xp"] += amount
+    save_state()
+    print(f"⚡ +{amount} XP за активность ({action}): {user.full_name} → {passport['xp']} XP")
+    return amount
+
+
+def xp_today(user_id: int) -> int:
+    """Сколько XP за активность уже набрано сегодня."""
+    passport = PASSPORTS.get(user_id)
+    if not passport:
+        return 0
+    today = datetime.now().strftime("%Y-%m-%d")
+    return sum(passport.get("daily_xp", {}).get(today, {}).values())
+
+
 # ══════════════════════════════ ВСПОМОГАТЕЛЬНОЕ ══════════════════════════
 
 # Экземпляр бота создаётся в main() после проверки токена,
@@ -484,6 +539,7 @@ def create_carousel_card(places, index: int, category_key: str):
             InlineKeyboardButton(text="Вперед ➡️", callback_data=f"page_{category_key}_{next_index}"),
         ]
     )
+    inline_keyboard.append([InlineKeyboardButton(text="🎲 Случайное место", callback_data=f"rnd_{category_key}")])
     if category_key == "nearfood":
         inline_keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="nearfood_back")])
     else:
@@ -537,6 +593,9 @@ def create_location_carousel(places, index: int, category_key: str):
             InlineKeyboardButton(text=f"🔹 {index + 1} / {total} 🔹", callback_data="keep_calm"),
             InlineKeyboardButton(text="Вперед ➡️", callback_data=f"loc_page_{category_key}_{next_index}"),
         ]
+    )
+    inline_keyboard.append(
+        [InlineKeyboardButton(text="🎲 Случайная локация", callback_data=f"rnd_loc_{category_key}")]
     )
     inline_keyboard.append([InlineKeyboardButton(text="🔙 К категориям локаций", callback_data="loc_menu")])
 
@@ -592,6 +651,9 @@ def create_route_carousel(places, index: int, category_key: str):
             InlineKeyboardButton(text="Вперед ➡️", callback_data=f"route_page_{category_key}_{next_index}"),
         ]
     )
+    inline_keyboard.append(
+        [InlineKeyboardButton(text="🎲 Случайный маршрут", callback_data=f"rnd_rt_{category_key}")]
+    )
     inline_keyboard.append([InlineKeyboardButton(text="🔙 К категориям маршрутов", callback_data="routes_menu")])
 
     return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), clean_url(pick(item, "Ссылка на фото"))
@@ -609,6 +671,13 @@ def get_main_inline_kb():
             [
                 InlineKeyboardButton(text="📅 События", callback_data="events_menu"),
                 InlineKeyboardButton(text="🗺 Маршруты", callback_data="routes_menu"),
+            ],
+            [
+                # Новости города — ссылка на канал (рассылок по личкам не делаем)
+                InlineKeyboardButton(text="📰 Новости города", url=NEWS_CHANNEL_URL),
+            ],
+            [
+                InlineKeyboardButton(text="✍️ Предложить место", callback_data="suggest_place"),
             ],
         ]
     )
@@ -733,6 +802,52 @@ def parse_event_date(raw):
     return None
 
 
+def build_events_message(events):
+    """Собирает все события ОДНИМ сообщением.
+
+    events: список кортежей (дата, строка из таблицы).
+    Возвращает (text, inline-клавиатура): у событий со ссылкой «Купить»
+    своя кнопка-билет, в конце — возврат в главное меню.
+    """
+    header = "📅 <b>Ближайшие события Севастополя:</b>\n"
+    markers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+    limit = 3800  # с запасом до лимита Telegram в 4096 символов
+    parts = [header]
+    used = len(header)
+    rows = []
+    included = 0
+
+    for i, (event_date, event) in enumerate(events):
+        name = pick(event, "Название", default="Без названия")
+        place = pick(event, "Место", default="Локация не указана")
+        desc = pick(event, "Описание")
+        if len(desc) > 220:
+            desc = desc[:219].rstrip() + "…"
+        marker = markers[i] if i < len(markers) else "•"
+        block = (
+            f"{marker} 📅 <b>{event_date.strftime('%d.%m.%Y')}</b>\n"
+            f"📍 <b>{esc(place)}</b>\n"
+            f"🎭 <b>{esc(name)}</b>"
+        )
+        if desc:
+            block += f"\n{esc(desc)}"
+        if used + len(block) + 2 > limit:
+            break
+        parts.append(block)
+        used += len(block) + 2
+        included += 1
+        buy_url = clean_url(pick(event, "Купить"))
+        if buy_url:
+            label = name if len(name) <= 25 else name[:24].rstrip() + "…"
+            rows.append([InlineKeyboardButton(text=f"🎟 {label}", url=buy_url)])
+
+    text = "\n\n".join(parts)
+    if included < len(events):
+        text += f"\n\n<i>Показаны первые {included} из {len(events)} — остальные тоже скоро 😉</i>"
+    rows.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="main_menu")])
+    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 async def show_events_menu(call: types.CallbackQuery):
     events_list = get_places_from_sheet("События")
     current_date = datetime.now().date()
@@ -744,7 +859,7 @@ async def show_events_menu(call: types.CallbackQuery):
             upcoming_events.append((event_date, r))
 
     upcoming_events.sort(key=lambda x: x[0])
-    upcoming_events = upcoming_events[:10]  # не заваливаем пользователя сообщениями
+    upcoming_events = upcoming_events[:10]  # не заваливаем пользователя
 
     if not upcoming_events:
         back_kb = InlineKeyboardMarkup(
@@ -757,37 +872,10 @@ async def show_events_menu(call: types.CallbackQuery):
         )
         return
 
+    # все события — одним сообщением, а не серией из N штук
+    text, markup = build_events_message(upcoming_events)
     await call.message.delete()
-    await call.message.answer("📅 <b>Ближайшие актуальные события Севастополя:</b>", parse_mode="HTML")
-
-    for event_date, event in upcoming_events:
-        formatted_date = event_date.strftime("%d.%m.%Y")
-        text = (
-            f"📅 <b>{formatted_date}</b> | 📍 <b>{esc(pick(event, 'Место', default='Локация не указана'))}</b>\n"
-            f"🎭 <b>{esc(pick(event, 'Название', default='Без названия'))}</b>\n\n"
-            f"{esc(pick(event, 'Описание'))}"
-        )
-        markup = None
-        buy_url = clean_url(pick(event, "Купить"))
-        if buy_url:
-            markup = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="🎟 Билеты / Подробнее", url=buy_url)]
-                ]
-            )
-        photo = clean_url(pick(event, "Ссылка на афишу"))
-        if photo:
-            try:
-                await call.message.answer_photo(photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
-            except Exception:
-                await call.message.answer(text=text, reply_markup=markup, parse_mode="HTML")
-        else:
-            await call.message.answer(text=text, reply_markup=markup, parse_mode="HTML")
-
-    back_kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="⬅️ В главное меню", callback_data="main_menu")]]
-    )
-    await call.message.answer("---\n<i>Больше событий пока нет.</i>", reply_markup=back_kb, parse_mode="HTML")
+    await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
     await call.answer()
 
 
@@ -1023,13 +1111,66 @@ async def show_nearby_food(call: types.CallbackQuery, state: FSMContext, place_t
     places_with_distance.sort(key=lambda x: x.get("distance", 999999))
     nearest = places_with_distance[:10]
 
+    # запоминаем, откуда пришли, чтобы «🔙 Назад» вернул на ЭТУ карточку
     await state.update_data(
         filtered_places=nearest,
         current_category="nearfood",
         nearfood_source=("routes_menu" if place_type == "rt" else "loc_menu"),
+        nearfood_type=place_type,
+        nearfood_category=category,
+        nearfood_index=index,
     )
     text, markup, photo_url = create_carousel_card(nearest, 0, "nearfood")
     await send_card(call, text, markup, photo_url)
+
+
+async def _random_carousel_food(call: types.CallbackQuery, state: FSMContext, category: str):
+    """🎲 Случайное место: тот же список, что и у текущей карусели."""
+    state_data = await state.get_data()
+    if category == "nearfood":
+        places = state_data.get("filtered_places")
+    elif state_data.get("current_category") == category:
+        places = state_data.get("filtered_places")
+    else:
+        places = get_places_from_sheet(CAT_MAP.get(category, "Кофе"))
+    if not places:
+        await call.answer("Список пуст, выбери категорию заново 😔", show_alert=True)
+        return
+    index = random.randint(0, len(places) - 1)
+    text, markup, photo_url = create_carousel_card(places, index, category)
+    await _send_carousel_page(call, text, markup, photo_url)
+
+
+async def _random_carousel_location(call: types.CallbackQuery, state: FSMContext, category: str):
+    """🎲 Случайная локация из текущей категории."""
+    state_data = await state.get_data()
+    places = state_data.get("loc_places") or [
+        r
+        for r in get_places_from_sheet("Локации")
+        if category.lower() in str(r.get("Категория", "")).lower()
+    ]
+    if not places:
+        await call.answer(f"В категории «{category}» пока пусто 😔", show_alert=True)
+        return
+    index = random.randint(0, len(places) - 1)
+    text, markup, photo_url = create_location_carousel(places, index, category)
+    await _send_carousel_page(call, text, markup, photo_url)
+
+
+async def _random_carousel_route(call: types.CallbackQuery, state: FSMContext, category: str):
+    """🎲 Случайный маршрут из текущей категории."""
+    state_data = await state.get_data()
+    places = state_data.get("rt_places") or [
+        r
+        for r in get_places_from_sheet("Маршруты")
+        if category.lower() in str(r.get("Категория", "")).lower()
+    ]
+    if not places:
+        await call.answer(f"Маршрутов типа «{category}» пока нет 😔", show_alert=True)
+        return
+    index = random.randint(0, len(places) - 1)
+    text, markup, photo_url = create_route_carousel(places, index, category)
+    await _send_carousel_page(call, text, markup, photo_url)
 
 
 async def send_message_card(message: types.Message, text, markup, photo_url):
@@ -1037,6 +1178,14 @@ async def send_message_card(message: types.Message, text, markup, photo_url):
         await message.answer_photo(photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML")
     else:
         await message.answer(text=text, reply_markup=markup, parse_mode="HTML")
+
+
+# ══════════════════════════════ ПРЕДЛОЖИТЬ МЕСТО ════════════════════════
+
+class SuggestPlace(StatesGroup):
+    """Ждём, пока пользователь пришлёт описание нового места."""
+
+    waiting = State()
 
 
 # ══════════════════════════════ ОБРАБОТЧИК КОЛБЭКОВ ═════════════════════
@@ -1064,34 +1213,81 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
 
     if data == "main_menu":
         log_action(call.from_user.id, call.from_user.username, "BTN_MAIN_MENU")
+        award_activity_xp(call.from_user, "BTN_MAIN_MENU")
         await state.clear()
         await edit_or_reply_text(call, "Выбирай категорию:", get_main_inline_kb())
 
     elif data == "food_menu":
         log_action(call.from_user.id, call.from_user.username, "BTN_FOOD")
+        award_activity_xp(call.from_user, "BTN_FOOD")
         await show_food_menu(call, state)
 
     elif data == "loc_menu":
         log_action(call.from_user.id, call.from_user.username, "BTN_LOCATIONS")
+        award_activity_xp(call.from_user, "BTN_LOCATIONS")
         await show_locations_menu(call)
 
     elif data == "routes_menu":
         log_action(call.from_user.id, call.from_user.username, "BTN_ROUTES")
+        award_activity_xp(call.from_user, "BTN_ROUTES")
         await show_routes_menu(call)
 
     elif data == "events_menu":
         log_action(call.from_user.id, call.from_user.username, "BTN_EVENTS")
+        award_activity_xp(call.from_user, "BTN_EVENTS")
         await show_events_menu(call)
 
     elif data == "keep_calm":
         pass  # просто гасим колбэк
 
     elif data == "nearfood_back":
-        src = (await state.get_data()).get("nearfood_source", "loc_menu")
-        if src == "routes_menu":
-            await show_routes_menu(call)
+        # возвращаемся на ту же карточку локации/маршрута,
+        # откуда открыли «Съестное рядом»
+        state_data = await state.get_data()
+        back_cat = state_data.get("nearfood_category")
+        back_idx = state_data.get("nearfood_index")
+        back_type = state_data.get("nearfood_type")
+        if back_cat is not None and back_idx is not None:
+            if back_type == "rt":
+                await show_route_page(call, state, back_cat, back_idx)
+            else:
+                await show_location_page(call, state, back_cat, back_idx)
         else:
-            await show_locations_menu(call)
+            src = state_data.get("nearfood_source", "loc_menu")
+            if src == "routes_menu":
+                await show_routes_menu(call)
+            else:
+                await show_locations_menu(call)
+
+    elif data.startswith("rnd_"):
+        body = data[len("rnd_"):]
+        if body.startswith("loc_"):
+            await _random_carousel_location(call, state, body[len("loc_"):])
+        elif body.startswith("rt_"):
+            await _random_carousel_route(call, state, body[len("rt_"):])
+        else:
+            await _random_carousel_food(call, state, body)
+
+    elif data == "suggest_place":
+        log_action(call.from_user.id, call.from_user.username, "SUGGEST_PLACE")
+        await state.set_state(SuggestPlace.waiting)
+        cancel_kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="suggest_cancel")]]
+        )
+        await call.message.answer(
+            "Скинь, что добавить в базу! 🙌\n\n"
+            "Название, адрес или район, цены, телефон, фото или ссылки — "
+            "всё, что есть. Передам владельцу бота.",
+            reply_markup=cancel_kb,
+        )
+
+    elif data == "suggest_cancel":
+        await state.clear()
+        await edit_or_reply_text(
+            call,
+            "Отменили ✌️ Если передумаешь — кнопка «✍️ Предложить место» в главном меню.",
+            None,
+        )
 
     # ЕДА
     elif data.startswith("cat_") or data.startswith("back_to_cat_"):
@@ -1133,6 +1329,7 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
 
     elif data.startswith("foodnear_"):
         place_type, category, index = parse_foodnear(data)
+        award_activity_xp(call.from_user, "NEARBY_FOOD")
         await show_nearby_food(call, state, place_type, category, index)
 
     elif data.startswith("page_"):
@@ -1157,6 +1354,27 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
 
 
 # ══════════════════════════════ ОБРАБОТЧИКИ СООБЩЕНИЙ ════════════════════
+
+# Регистрируем первым: пока идёт «Предложить место», сообщение пользователя
+# должно попасть сюда, а не в другие обработчики.
+@dp.message(SuggestPlace.waiting)
+async def receive_suggestion(message: types.Message, state: FSMContext):
+    user = message.from_user
+    create_passport_if_not_exists(user)
+    await state.clear()
+    award_activity_xp(user, "SUGGEST_PLACE")
+    log_action(user.id, user.username or "", "SUGGEST_PLACE_SUBMIT")
+
+    # Пересылаем предложение владельцу (одному — это не рассылка)
+    try:
+        await message.copy_to(chat_id=ADMIN_ID)
+    except Exception as e:
+        print(f"⚠️ Не удалось переслать предложение владельцу: {e}")
+
+    await message.answer(
+        "Спасибо! 🙌 Передала владельцу бота — проверим и добавим место в базу."
+    )
+
 
 @dp.message(F.text == "🏠 Главное меню")
 async def process_main_menu_btn(message: types.Message, state: FSMContext):
@@ -1202,7 +1420,8 @@ async def show_passport(message: types.Message):
         f"⭐ Level: {level} — {get_rank(passport['xp'])}\n"
         f"⚡ XP: {passport['xp']}\n"
         f"{get_progress_bar(passport['xp'])}\n"
-        f"До следующего уровня: {xp_to_next(passport['xp'])} XP",
+        f"До следующего уровня: {xp_to_next(passport['xp'])} XP\n"
+        f"📆 Сегодня за активность: +{xp_today(message.from_user.id)} XP",
         parse_mode="HTML",
     )
 
@@ -1292,6 +1511,7 @@ async def handle_user_location(message: types.Message, state: FSMContext):
 
     places_with_distance.sort(key=lambda x: x.get("distance", 999999))
 
+    award_activity_xp(message.from_user, "GEO_FIND")
     await message.answer("Секунду, ищу ближайшие...", reply_markup=ReplyKeyboardRemove())
     await state.update_data(filtered_places=places_with_distance, current_category=category)
 
