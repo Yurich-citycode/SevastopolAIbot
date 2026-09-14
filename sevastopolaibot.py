@@ -368,6 +368,22 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 
+# ── Парсинг callback_data ─────────────────────────────────────────────────
+# Названия категорий/районов могут содержать пробелы («Hidden Gems»,
+# «Парк Победы»), поэтому всё, что идёт до индекса, склеиваем обратно.
+
+def parse_cat_index(data: str):
+    """'prefix_<категория с пробелами>_<индекс>' → (категория, индекс)."""
+    parts = data.split("_")
+    return "_".join(parts[2:-1]), int(parts[-1])
+
+
+def parse_foodnear(data: str):
+    """'foodnear_<loc|rt>_<категория с пробелами>_<индекс>' → (тип, категория, индекс)."""
+    parts = data.split("_")
+    return parts[1], "_".join(parts[2:-1]), int(parts[-1])
+
+
 async def edit_or_reply_text(call: types.CallbackQuery, text: str, reply_markup):
     """Правит текстовое сообщение; если это фото — удаляет и отвечает текстом."""
     try:
@@ -678,9 +694,20 @@ async def show_food_filter_menu(call: types.CallbackQuery, state: FSMContext, ca
             [InlineKeyboardButton(text="📍 Рядом со мной", callback_data=f"filter_near_{category}")],
             [InlineKeyboardButton(text="🗺 НА РАЙОНЕ", callback_data=f"filter_dist_{category}")],
             [InlineKeyboardButton(text="📋 Все списком", callback_data=f"filter_all_{category}")],
-            [InlineKeyboardButton(text="⬅️ Назад", callback_data="food_menu")],
         ]
     )
+
+    # Если в категории заполнены подкатегории (Бары и пабы, Фастфуд, ...) —
+    # добавляем кнопку-фильтр по ним
+    sheet_cat = CAT_MAP.get(category, "Кофе")
+    cat_places = get_places_from_sheet(sheet_cat)
+    has_subs = any(str(p.get("Подкатегория", "")).strip() for p in cat_places)
+    if has_subs:
+        kb.inline_keyboard.append(
+            [InlineKeyboardButton(text="🏷 По подкатегории", callback_data=f"filter_sub_{category}")]
+        )
+
+    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="food_menu")])
     await edit_or_reply_text(call, messages_map.get(category, "Выбирай вариант поиска: 👇"), kb)
 
 
@@ -871,6 +898,39 @@ async def show_district_places(call: types.CallbackQuery, state: FSMContext, cat
     await send_card(call, text, markup, photo_url)
 
 
+async def show_subcategories_menu(call: types.CallbackQuery, category: str):
+    sheet_cat = CAT_MAP.get(category, "Кофе")
+    places = get_places_from_sheet(sheet_cat)
+    subs = sorted(
+        {str(p.get("Подкатегория", "")).strip() for p in places if str(p.get("Подкатегория", "")).strip()}
+    )
+    if not subs:
+        await call.answer("В этой категории пока нет подкатегорий 😔", show_alert=True)
+        return
+
+    builder = InlineKeyboardBuilder()
+    for sub in subs:
+        builder.button(text=sub, callback_data=f"subselect_{category}_{sub}")
+    builder.adjust(2)
+    builder.button(text="⬅️ Назад", callback_data=f"cat_{category}")
+    builder.adjust(2, 1)
+
+    await edit_or_reply_text(call, "Выбери подкатегорию: 👇", builder.as_markup())
+    await call.answer()
+
+
+async def show_subcategory_places(call: types.CallbackQuery, state: FSMContext, category: str, sub: str):
+    sheet_cat = CAT_MAP.get(category, "Кофе")
+    places = get_places_from_sheet(sheet_cat)
+    filtered = [p for p in places if str(p.get("Подкатегория", "")).strip() == sub]
+    if not filtered:
+        await call.answer("В этой подкатегории пока пусто 😔", show_alert=True)
+        return
+    await state.update_data(filtered_places=filtered, current_category=category)
+    text, markup, photo_url = create_carousel_card(filtered, 0, category)
+    await send_card(call, text, markup, photo_url)
+
+
 async def send_card(call, text, markup, photo_url):
     await call.message.delete()
     if photo_url:
@@ -1038,14 +1098,21 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
         await show_food_filter_menu(call, state, data.split("_")[-1])
 
     elif data.startswith("filter_dist_"):
-        await show_districts_menu(call, data.split("_")[2])
+        await show_districts_menu(call, data.split("_", 2)[2])
+
+    elif data.startswith("filter_sub_"):
+        await show_subcategories_menu(call, data.split("_", 2)[2])
+
+    elif data.startswith("subselect_"):
+        parts = data.split("_", 2)
+        await show_subcategory_places(call, state, parts[1], parts[2])
 
     elif data.startswith("subdist_"):
-        parts = data.split("_")
+        parts = data.split("_", 2)
         await show_district_places(call, state, parts[1], parts[2])
 
     elif data.startswith("filter_near_"):
-        category = data.split("_")[2]
+        category = data.split("_", 2)[2]
         await state.update_data(location_target_category=category)
         location_keyboard = ReplyKeyboardMarkup(
             keyboard=[[KeyboardButton(text="📍 Отправить геопозицию", request_location=True)]],
@@ -1062,31 +1129,31 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
         await call.message.answer(text=disclaimer_text, reply_markup=location_keyboard, parse_mode="HTML")
 
     elif data.startswith("filter_all_"):
-        await show_all_places(call, state, data.split("_")[2])
+        await show_all_places(call, state, data.split("_", 2)[2])
 
     elif data.startswith("foodnear_"):
-        parts = data.split("_")
-        await show_nearby_food(call, state, parts[1], parts[2], int(parts[3]))
+        place_type, category, index = parse_foodnear(data)
+        await show_nearby_food(call, state, place_type, category, index)
 
     elif data.startswith("page_"):
         parts = data.split("_")
-        await show_food_page(call, state, parts[1], int(parts[2]))
+        await show_food_page(call, state, parts[1], int(parts[-1]))
 
     # ЛОКАЦИИ
     elif data.startswith("locselect_"):
-        await show_location_category(call, state, data.split("_")[1])
+        await show_location_category(call, state, data.split("_", 1)[1])
 
     elif data.startswith("loc_page_"):
-        parts = data.split("_")
-        await show_location_page(call, state, parts[2], int(parts[3]))
+        category, index = parse_cat_index(data)
+        await show_location_page(call, state, category, index)
 
     # МАРШРУТЫ
     elif data.startswith("rtselect_"):
-        await show_route_category(call, state, data.split("_")[1])
+        await show_route_category(call, state, data.split("_", 1)[1])
 
     elif data.startswith("route_page_"):
-        parts = data.split("_")
-        await show_route_page(call, state, parts[2], int(parts[3]))
+        category, index = parse_cat_index(data)
+        await show_route_page(call, state, category, index)
 
 
 # ══════════════════════════════ ОБРАБОТЧИКИ СООБЩЕНИЙ ════════════════════
