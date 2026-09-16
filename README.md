@@ -21,6 +21,7 @@
 | `worker/` | Cloudflare Worker — принимает форму и шлёт заявку владельцу в личку (инструкция внутри) |
 | `events/` | Парсер каналов на личном аккаунте (Telethon) — отдельный сервис (инструкция внутри) |
 | `tests/` | Тесты: `test_carousels.py` (бот, 75 проверок) и `test_forwarder.py` (парсер каналов) |
+| `notebooks/` | Готовые Colab-ноутбуки: `SevastopolAI_bot.ipynb` и `SevastopolAI_parser.ipynb` |
 
 ## Быстрый старт (локально)
 
