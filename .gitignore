@@ -1,6 +1,8 @@
 # Секреты и локальные файлы — никогда не коммитим
 .env
+events/.env
 bot_state.json
+events/forwarder_state.json
 
 # Python
 __pycache__/

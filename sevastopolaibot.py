@@ -30,7 +30,6 @@ import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -77,6 +76,15 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "6106999216"))
 NEWS_CHANNEL_URL = os.getenv("NEWS_CHANNEL_URL", "https://t.me/Sevastopol_AI").strip()
 if not NEWS_CHANNEL_URL.startswith(("http://", "https://")):
     NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
+
+# Веб-форма «Предложить место» (suggest.html на GitHub Pages).
+# Кнопка «✍️ Предложить место» в главном меню — URL-кнопка: открывает эту форму
+# в браузере / встроенном браузере Telegram. Заявка уходит владельцу через
+# Cloudflare Worker (см. worker/README.md).
+SUGGEST_FORM_URL = os.getenv(
+    "SUGGEST_FORM_URL",
+    "https://yurich-citycode.github.io/SevastopolAIbot/suggest.html",
+).strip()
 
 # Как часто перечитывать таблицу (секунды)
 REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "600"))
@@ -751,7 +759,9 @@ def get_main_inline_kb():
                 InlineKeyboardButton(text="📰 Новости города", url=NEWS_CHANNEL_URL),
             ],
             [
-                InlineKeyboardButton(text="✍️ Предложить место", callback_data="suggest_place"),
+                # Открывает веб-форму suggest.html (GitHub Pages);
+                # заявка уходит владельцу через Cloudflare Worker.
+                InlineKeyboardButton(text="✍️ Предложить место", url=SUGGEST_FORM_URL),
             ],
         ]
     )
@@ -1308,14 +1318,14 @@ async def send_message_card(message: types.Message, text, markup, photo_url, rep
 
 # ══════════════════════════════ ПРЕДЛОЖИТЬ МЕСТО ════════════════════════
 
-class SuggestPlace(StatesGroup):
-    """Ждём, пока пользователь пришлёт описание нового места."""
-
-    waiting = State()
-
+# Начиная с v1.2 кнопка «✍️ Предложить место» — URL-кнопка: она открывает
+# веб-форму suggest.html (GitHub Pages) в браузере. Встроенный диалог бота
+# больше не используется. Заявки с формы приходят владельцу через
+# Cloudflare Worker (папка worker/).
 
 # Маркер предложений, пришедших со страницы suggest.html (вставленных в чат):
-# форма собирает текст с таким первым словом, и бот понимает — это предложение.
+# старая версия формы собирала текст с таким первым словом — поддержка
+# сохранена, такие сообщения по-прежнему доходят владельцу.
 SUGGEST_WEB_PREFIX = "✍️ ПРЕДЛОЖЕНИЕ:"
 
 
@@ -1400,25 +1410,32 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
             await _random_carousel_food(call, state, body)
 
     elif data == "suggest_place":
+        # Кнопка в меню теперь URL-кнопка, но у пользователей могут остаться
+        # старые клавиатуры с этим колбэком — мягко отправляем в форму.
         log_action(call.from_user.id, call.from_user.username, "SUGGEST_PLACE")
-        await state.set_state(SuggestPlace.waiting)
-        cancel_kb = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="suggest_cancel")]]
-        )
-        await call.message.answer(
-            "Скинь, что добавить в базу! 🙌\n\n"
-            "Название, адрес или район, цены, телефон, фото или ссылки — "
-            "всё, что есть. Передам владельцу бота.",
-            reply_markup=cancel_kb,
-        )
+        try:
+            await call.message.answer(
+                "Форма предложений теперь живёт на странице 👇",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        InlineKeyboardButton(text="✍️ Открыть форму", url=SUGGEST_FORM_URL)
+                    ]]
+                ),
+            )
+            await call.answer()
+        except Exception:
+            pass
 
     elif data == "suggest_cancel":
-        await state.clear()
-        await edit_or_reply_text(
-            call,
-            "Отменили ✌️ Если передумаешь — кнопка «✍️ Предложить место» в главном меню.",
-            None,
-        )
+        # Остатки старого диалога: просто подсказываем новую форму.
+        try:
+            await state.clear()
+            await call.message.answer(
+                "Отменили ✌️ Форма предложений: " + SUGGEST_FORM_URL
+            )
+            await call.answer()
+        except Exception:
+            pass
 
     # ЕДА
     elif data.startswith("cat_") or data.startswith("back_to_cat_"):
@@ -1485,27 +1502,6 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
 
 
 # ══════════════════════════════ ОБРАБОТЧИКИ СООБЩЕНИЙ ════════════════════
-
-# Регистрируем первым: пока идёт «Предложить место», сообщение пользователя
-# должно попасть сюда, а не в другие обработчики.
-@dp.message(SuggestPlace.waiting)
-async def receive_suggestion(message: types.Message, state: FSMContext):
-    user = message.from_user
-    create_passport_if_not_exists(user)
-    await state.clear()
-    award_activity_xp(user, "SUGGEST_PLACE")
-    log_action(user.id, user.username or "", "SUGGEST_PLACE_SUBMIT")
-
-    # Пересылаем предложение владельцу (одному — это не рассылка)
-    try:
-        await message.copy_to(chat_id=ADMIN_ID)
-    except Exception as e:
-        print(f"⚠️ Не удалось переслать предложение владельцу: {e}")
-
-    await message.answer(
-        "Спасибо! 🙌 Передала владельцу бота — проверим и добавим место в базу."
-    )
-
 
 @dp.message(F.text == "🏠 Главное меню")
 async def process_main_menu_btn(message: types.Message, state: FSMContext):
