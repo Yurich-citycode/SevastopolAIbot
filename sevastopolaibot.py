@@ -21,8 +21,9 @@ import logging
 import math
 import os
 import random
+import re
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
@@ -316,14 +317,63 @@ def get_ref_link(user_id):
     return f"https://t.me/SevastopolAIBot?start=ref_{user_id}"
 
 
+# Обещание в тексте «Пригласить друга» теперь соответствует коду:
+# +25 XP сразу за реферала, +40 XP, если приглашённый активен 7+ дней.
+REFERRAL_XP = 25
+REFERRAL_BONUS_XP = 40
+REFERRAL_BONUS_DAYS = 7
+
+
 async def process_referral(new_user_id, referrer_id):
     if referrer_id == new_user_id or new_user_id in REFERRALS:
         return
-    REFERRALS[new_user_id] = referrer_id
+    REFERRALS[new_user_id] = {
+        "referrer": referrer_id,
+        "date": datetime.now().isoformat(),
+        "bonus_given": False,
+    }
     if referrer_id in PASSPORTS:
-        PASSPORTS[referrer_id]["xp"] += 25
-        print(f"⚡ +25 XP рефералу {referrer_id}")
+        PASSPORTS[referrer_id]["xp"] += REFERRAL_XP
+        print(f"⚡ +{REFERRAL_XP} XP рефералу {referrer_id}")
     save_state()
+
+
+async def check_referral_bonuses():
+    """+40 XP рефереру: приглашённый в боте 7+ дней и уже проявил активность.
+
+    Вызывается в /start — дёшево: перебираем только рефералов,
+    а не всю базу. Совместимо со старым форматом REFERRALS (int).
+    """
+    today = datetime.now()
+    for new_id, info in list(REFERRALS.items()):
+        if isinstance(info, int):
+            continue  # старый формат (до v1.1): даты не было, бонус не начисляем
+        if info.get("bonus_given"):
+            continue
+        try:
+            ref_date = datetime.fromisoformat(info["date"])
+        except Exception:
+            continue
+        if (today - ref_date).days < REFERRAL_BONUS_DAYS:
+            continue
+        active = any(row.get("user_id") == new_id for row in ANALYTICS_ROWS)
+        if not active:
+            continue
+        ref_id = info.get("referrer")
+        if ref_id in PASSPORTS:
+            PASSPORTS[ref_id]["xp"] += REFERRAL_BONUS_XP
+            info["bonus_given"] = True
+            save_state()
+            print(f"⚡ +{REFERRAL_BONUS_XP} XP: реферал {new_id} активен {REFERRAL_BONUS_DAYS}+ дней")
+            try:
+                await bot.send_message(
+                    ref_id,
+                    f"🎉 Твой друг в боте уже неделю и активно гуляет по городу! "
+                    f"Тебе начислено <b>+{REFERRAL_BONUS_XP} XP</b>.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass  # заблокировал бота или прочее — не критично
 
 
 # ── XP за активность ─────────────────────────────────────────────────────
@@ -399,6 +449,11 @@ def esc(value) -> str:
     return html.escape(str(value), quote=False)
 
 
+def strip_html(text) -> str:
+    """Убирает HTML-теги — для экстренных фолбэков без parse_mode."""
+    return re.sub(r"<[^>]+>", "", str(text))
+
+
 def clean_url(value) -> str:
     """Возвращает валидный http(s)-URL или пустую строку."""
     s = str(value).strip()
@@ -440,16 +495,25 @@ def parse_foodnear(data: str):
 
 
 async def edit_or_reply_text(call: types.CallbackQuery, text: str, reply_markup):
-    """Правит текстовое сообщение; если это фото — удаляет и отвечает текстом."""
+    """Правит текстовое сообщение; если это фото — удаляет и отвечает текстом.
+
+    Если правка/отправка не удалась — не оставляем пользователя ни с чем:
+    отвечаем новой текстовой карточкой (без HTML-тегов, покороче).
+    """
+    msg = call.message
     try:
-        if call.message.photo:
-            await call.message.delete()
-            await call.message.answer(text=text, reply_markup=reply_markup, parse_mode="HTML")
+        if msg.photo:
+            await msg.delete()
+            await msg.answer(text=text, reply_markup=reply_markup, parse_mode="HTML")
         else:
-            await call.message.edit_text(text=text, reply_markup=reply_markup, parse_mode="HTML")
-    except Exception:
-        # «message is not modified» и подобное — не критично
-        pass
+            await msg.edit_text(text=text, reply_markup=reply_markup, parse_mode="HTML")
+    except Exception as e:
+        # «message is not modified» и подобное — не критично, но логируем
+        logging.warning("edit_or_reply_text failed: %s", e)
+        try:
+            await msg.answer(text=strip_html(text)[:1000], reply_markup=reply_markup)
+        except Exception:
+            pass
 
 
 def yandex_maps_url(coords: str) -> str:
@@ -469,6 +533,10 @@ def create_carousel_card(places, index: int, category_key: str):
     name = pick(item, "Название", default="Без названия")
     photo_url = clean_url(pick(item, "Ссылка на фото"))
     description = pick(item, "Описание")
+    # Лимит Telegram на подпись к фото — 1024 символа; длинное описание
+    # на фото-карточке обрезаем, чтобы карточка не падала с ошибкой 400
+    if photo_url and len(description) > 700:
+        description = description[:697].rstrip() + "…"
     address = pick(item, "Адрес", default="Адрес не указан")
     district = pick(item, "Район")
     coords = pick(item, "Координаты")
@@ -559,7 +627,10 @@ def create_location_carousel(places, index: int, category_key: str):
     total = len(places)
 
     name = pick(item, "Название", default="Без названия")
+    photo_url = clean_url(pick(item, "Ссылка на фото"))
     description = pick(item, "Описание")
+    if photo_url and len(description) > 700:
+        description = description[:697].rstrip() + "…"
     orientir = pick(item, "Ориентир", default="Не указан")
     coords = pick(item, "Координаты")
 
@@ -599,7 +670,7 @@ def create_location_carousel(places, index: int, category_key: str):
     )
     inline_keyboard.append([InlineKeyboardButton(text="🔙 К категориям локаций", callback_data="loc_menu")])
 
-    return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), clean_url(pick(item, "Ссылка на фото"))
+    return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), photo_url
 
 
 # 3. Карусель для МАРШРУТОВ
@@ -611,7 +682,10 @@ def create_route_carousel(places, index: int, category_key: str):
     total = len(places)
 
     name = pick(item, "Название", default="Без названия")
+    photo_url = clean_url(pick(item, "Ссылка на фото"))
     description = pick(item, "Описание")
+    if photo_url and len(description) > 700:
+        description = description[:697].rstrip() + "…"
     duration = pick(item, "Длина/Время", default="Не указано")
     difficulty = pick(item, "Сложность", default="Не указана")
     map_url = clean_url(pick(item, "Ссылка на карту"))
@@ -656,7 +730,7 @@ def create_route_carousel(places, index: int, category_key: str):
     )
     inline_keyboard.append([InlineKeyboardButton(text="🔙 К категориям маршрутов", callback_data="routes_menu")])
 
-    return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), clean_url(pick(item, "Ссылка на фото"))
+    return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), photo_url
 
 
 # ══════════════════════════════ МЕНЮ ═════════════════════════════════════
@@ -802,6 +876,16 @@ def parse_event_date(raw):
     return None
 
 
+def _day_label(d):
+    """«Сегодня, 16.09» / «Завтра, 17.09» / «Среда, 23.09» — события читаются с одного взгляда."""
+    today = datetime.now().date()
+    if d == today:
+        return f"Сегодня, {d.strftime('%d.%m')}"
+    if d == today + timedelta(days=1):
+        return f"Завтра, {d.strftime('%d.%m')}"
+    return f"{d.strftime('%A').capitalize()}, {d.strftime('%d.%m')}"
+
+
 def build_events_message(events):
     """Собирает все события ОДНИМ сообщением.
 
@@ -825,7 +909,7 @@ def build_events_message(events):
             desc = desc[:219].rstrip() + "…"
         marker = markers[i] if i < len(markers) else "•"
         block = (
-            f"{marker} 📅 <b>{event_date.strftime('%d.%m.%Y')}</b>\n"
+            f"{marker} 📅 <b>{esc(_day_label(event_date))}</b>\n"
             f"📍 <b>{esc(place)}</b>\n"
             f"🎭 <b>{esc(name)}</b>"
         )
@@ -904,23 +988,37 @@ async def show_route_category(call: types.CallbackQuery, state: FSMContext, cate
 
 
 async def _send_carousel_page(call, text, markup, photo_url):
-    """Общая логика показа/перелистывания карточки."""
+    """Общая логика показа/перелистывания карточки.
+
+    Порядок важен: стараемся не «стёртое + молчание». Если фото не ушло —
+    у пользователя остаётся как минимум текстовая карточка.
+    """
+    msg = call.message
     try:
-        if photo_url and call.message.photo:
-            await call.message.edit_media(
+        if photo_url and msg.photo:
+            await msg.edit_media(
                 media=InputMediaPhoto(media=photo_url, caption=text, parse_mode="HTML"),
                 reply_markup=markup,
             )
+            return
+    except Exception as e:
+        logging.warning("edit_media failed: %s", e)
+    try:
+        if photo_url:
+            await msg.delete()
+            await msg.answer_photo(photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML")
+        elif msg.photo:
+            await msg.delete()
+            await msg.answer(text=text, reply_markup=markup, parse_mode="HTML")
         else:
-            await call.message.delete()
-            if photo_url:
-                await call.message.answer_photo(
-                    photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML"
-                )
-            else:
-                await call.message.answer(text=text, reply_markup=markup, parse_mode="HTML")
+            await msg.edit_text(text=text, reply_markup=markup, parse_mode="HTML")
     except Exception as e:
         logging.warning("Carousel update failed: %s", e)
+        # Последний шанс: чистый текст без фото и без parse_mode
+        try:
+            await msg.answer(text=strip_html(text)[:1000], reply_markup=markup)
+        except Exception:
+            pass
 
 
 async def show_location_page(call: types.CallbackQuery, state: FSMContext, category: str, index: int):
@@ -1020,11 +1118,23 @@ async def show_subcategory_places(call: types.CallbackQuery, state: FSMContext, 
 
 
 async def send_card(call, text, markup, photo_url):
-    await call.message.delete()
-    if photo_url:
-        await call.message.answer_photo(photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML")
-    else:
-        await call.message.answer(text=text, reply_markup=markup, parse_mode="HTML")
+    """Отправляет карточку и убирает меню ПОСЛЕ успешной отправки —
+    если фото не доехало, у пользователя хотя бы останется текстовая версия."""
+    try:
+        if photo_url:
+            await call.message.answer_photo(photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML")
+        else:
+            await call.message.answer(text=text, reply_markup=markup, parse_mode="HTML")
+    except Exception as e:
+        logging.warning("send_card photo failed (%s) — отправляю текстом", e)
+        try:
+            await call.message.answer(text=strip_html(text)[:1000], reply_markup=markup)
+        except Exception:
+            pass
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
 
 
 async def show_all_places(call: types.CallbackQuery, state: FSMContext, category: str):
@@ -1173,11 +1283,27 @@ async def _random_carousel_route(call: types.CallbackQuery, state: FSMContext, c
     await _send_carousel_page(call, text, markup, photo_url)
 
 
-async def send_message_card(message: types.Message, text, markup, photo_url):
-    if photo_url:
-        await message.answer_photo(photo=photo_url, caption=text, reply_markup=markup, parse_mode="HTML")
-    else:
-        await message.answer(text=text, reply_markup=markup, parse_mode="HTML")
+async def send_message_card(message: types.Message, text, markup, photo_url, reply_keyboard=None):
+    try:
+        if photo_url:
+            await message.answer_photo(
+                photo=photo_url, caption=text, reply_markup=markup,
+                parse_mode="HTML", reply_keyboard=reply_keyboard,
+            )
+        else:
+            await message.answer(
+                text=text, reply_markup=markup, parse_mode="HTML",
+                reply_keyboard=reply_keyboard,
+            )
+    except Exception as e:
+        logging.warning("send_message_card failed (%s) — отправляю текстом", e)
+        try:
+            await message.answer(
+                text=strip_html(text)[:1000], reply_markup=markup,
+                reply_keyboard=reply_keyboard,
+            )
+        except Exception:
+            pass
 
 
 # ══════════════════════════════ ПРЕДЛОЖИТЬ МЕСТО ════════════════════════
@@ -1186,6 +1312,11 @@ class SuggestPlace(StatesGroup):
     """Ждём, пока пользователь пришлёт описание нового места."""
 
     waiting = State()
+
+
+# Маркер предложений, пришедших со страницы suggest.html (вставленных в чат):
+# форма собирает текст с таким первым словом, и бот понимает — это предложение.
+SUGGEST_WEB_PREFIX = "✍️ ПРЕДЛОЖЕНИЕ:"
 
 
 # ══════════════════════════════ ОБРАБОТЧИК КОЛБЭКОВ ═════════════════════
@@ -1466,6 +1597,12 @@ async def cmd_start(message: types.Message):
     create_passport_if_not_exists(message.from_user)
     log_action(message.from_user.id, message.from_user.username or "", "START")
 
+    # раз в /start проверяем «реферал активен 7 дней → +40 XP» (дёшево)
+    try:
+        await check_referral_bonuses()
+    except Exception as e:
+        logging.warning("check_referral_bonuses: %s", e)
+
     welcome_text = (
         "Привет! Я — твой гид по Севастополю. \n"
         "Помогу найти лучшее место для еды, покажу интересные локации "
@@ -1486,7 +1623,8 @@ async def handle_user_location(message: types.Message, state: FSMContext):
     sheet_cat = CAT_MAP.get(category, "Кофе")
     places = get_places_from_sheet(sheet_cat)
     if not places:
-        await message.answer("Ошибка получения данных 😔", reply_markup=ReplyKeyboardRemove())
+        # клавиатуру возвращаем: user не должен остаться без кнопок после геопозиции
+        await message.answer("Ошибка получения данных 😔", reply_markup=main_reply_keyboard)
         return
 
     places_with_distance = []
@@ -1506,7 +1644,7 @@ async def handle_user_location(message: types.Message, state: FSMContext):
         places_with_distance.append(p_copy)
 
     if not places_with_distance:
-        await message.answer("Увы, не удалось рассчитать расстояние.", reply_markup=ReplyKeyboardRemove())
+        await message.answer("Увы, не удалось рассчитать расстояние.", reply_markup=main_reply_keyboard)
         return
 
     places_with_distance.sort(key=lambda x: x.get("distance", 999999))
@@ -1516,7 +1654,39 @@ async def handle_user_location(message: types.Message, state: FSMContext):
     await state.update_data(filtered_places=places_with_distance, current_category=category)
 
     text, markup, photo_url = create_carousel_card(places_with_distance, 0, category)
-    await send_message_card(message, text, markup, photo_url)
+    # главная клавиатура возвращается вместе с карточкой —
+    # иначе после «Рядом со мной» кнопки меню пропадали бы навсегда
+    await send_message_card(message, text, markup, photo_url, reply_keyboard=main_reply_keyboard)
+
+
+# ═══════════════════════ ПОРОГ: СВОБОДНЫЕ СООБЩЕНИЯ ═════════════════════
+# Регистрируется ПОСЛЕДНИМ: сюда доходит то, что не поймали другие обработчики.
+# 1) Текст со стрелкой формы suggest.html → предложение места (владельцу).
+# 2) Любое другое сообщение → мягкое возвращение к кнопкам, а не молчание.
+
+@dp.message()
+async def fallback_message(message: types.Message, state: FSMContext):
+    text = (message.text or "").strip()
+
+    if text.startswith(SUGGEST_WEB_PREFIX):
+        user = message.from_user
+        create_passport_if_not_exists(user)
+        await state.clear()
+        award_activity_xp(user, "SUGGEST_PLACE")
+        log_action(user.id, user.username or "", "SUGGEST_WEB_SUBMIT")
+        try:
+            await message.copy_to(chat_id=ADMIN_ID)
+        except Exception as e:
+            print(f"⚠️ Не удалось переслать веб-предложение владельцу: {e}")
+        await message.answer(
+            "Спасибо! 🙌 Передала владельцу бота — проверим и добавим место в базу."
+        )
+        return
+
+    await message.answer(
+        "Я понимаю только кнопки 🙂 Нажми «🏠 Главное меню» ниже — и покажу город.",
+        reply_markup=get_main_inline_kb(),
+    )
 
 
 # ══════════════════════════════ ЗАПУСК ═══════════════════════════════════
