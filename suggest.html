@@ -3,188 +3,416 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0A0B09">
 <title>Предложи место — Sevastopol AI</title>
 <meta name="description" content="Знаешь место в Севастополе, которого нет в боте? Скинь — добавим в базу.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B09'/%3E%3Crect x='1' y='1' width='30' height='30' fill='none' stroke='%23C6F432' stroke-width='1'/%3E%3Ctext x='16' y='23' font-family='Arial,sans-serif' font-size='18' font-weight='bold' text-anchor='middle' fill='%23C6F432'%3ES%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+  /* ============ CITY CODE TOKENS ============ */
   :root{
-    --cream:#F1E9D8; --black:#18140F; --pink:#E8377E; --yellow:#FFD23F;
-    --gray:rgba(24,20,15,.55);
+    color-scheme:dark;
+    --bg:#0A0B09;            /* фон страницы */
+    --card:#12140E;          /* карточки / поля ввода */
+    --panel:#0E100B;         /* панель формы — на тон темнее карточки, чтобы поля читались */
+    --lime:#C6F432;          /* основной акцент */
+    --blue:#2E62FF;          /* второй акцент */
+    --ink:#F2F5EC;           /* текст */
+    --muted:rgba(242,245,236,.55);
+    --dim:rgba(242,245,236,.34);
+    --line:rgba(198,244,50,.25);   /* тонкие рамки */
+    --line-soft:rgba(242,245,236,.12);
+    --font-display:'Anton','Archivo Narrow',system-ui,sans-serif;
+    --font-sans:'Archivo',system-ui,-apple-system,sans-serif;
+    --font-mono:'JetBrains Mono','IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
-  *{ box-sizing:border-box; margin:0; padding:0; }
-  html{ -webkit-text-size-adjust:100%; }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+
   body{
-    background:var(--cream);
-    color:var(--black);
-    font-family:'Archivo',system-ui,sans-serif;
     min-height:100vh;
+    color:var(--ink);
+    font-family:var(--font-sans);
+    -webkit-font-smoothing:antialiased;
+    background-color:var(--bg);
+    /* лёгкое лаймовое + синее свечение и очень тонкая сетка */
+    background-image:
+      radial-gradient(880px 520px at 88% -8%, rgba(46,98,255,.20), transparent 62%),
+      radial-gradient(720px 460px at -10% 6%, rgba(198,244,50,.11), transparent 60%),
+      radial-gradient(600px 600px at 50% 108%, rgba(198,244,50,.07), transparent 65%),
+      linear-gradient(rgba(242,245,236,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(242,245,236,.035) 1px, transparent 1px);
+    background-size:auto,auto,auto,34px 34px,34px 34px;
+    background-attachment:fixed,fixed,fixed,scroll,scroll;
+    position:relative;
+    overflow-x:hidden;
   }
-  /* халфтон-фон, как на всех страницах системы */
+  /* халфтон поверх фона (без картинок — только CSS) */
   body::before{
     content:"";
-    position:fixed; inset:0;
-    background-image:radial-gradient(rgba(24,20,15,.08) 1px, transparent 1.6px);
-    background-size:6px 6px;
-    pointer-events:none;
-    z-index:0;
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:radial-gradient(rgba(242,245,236,.07) 1px, transparent 1.4px);
+    background-size:5px 5px;
+    opacity:.5;
   }
+
+  ::selection{ background:var(--lime); color:#0A0B09; }
+  a,button{ touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+    outline:1px solid var(--lime); outline-offset:2px;
+  }
+
+  .mono{
+    font-family:var(--font-mono);
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    font-size:10.5px;
+    font-weight:500;
+  }
+
   .wrap{
     position:relative; z-index:1;
-    max-width:600px; margin:0 auto;
-    padding:28px 20px 60px;
+    max-width:620px; margin:0 auto;
+    padding:26px 20px 54px;
   }
+
+  /* ============ ШАПКА ============ */
   .top{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+    padding-bottom:16px; margin-bottom:26px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  /* бирка: лаймовый прямоугольник + чёрный моно-текст */
+  .tag{
+    display:inline-block;
+    background:var(--lime); color:#0A0B09;
+    font-family:var(--font-mono); font-weight:700;
+    font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    padding:6px 10px; line-height:1.2;
+    transform:rotate(-1.6deg);
+    box-shadow:0 0 22px rgba(198,244,50,.22);
+  }
+  .top .coord{ color:var(--dim); font-variant-numeric:tabular-nums; letter-spacing:.1em; }
+  .brand{
     display:flex; align-items:center; gap:10px;
-    margin-bottom:26px;
+    margin-bottom:22px;
   }
-  .top .sq{ width:22px; height:22px; background:var(--pink); flex:0 0 auto; }
-  .top .brand{
-    font-family:'Anton',sans-serif;
-    font-size:20px; letter-spacing:.5px;
+  .brand .sq{ width:14px; height:14px; background:var(--lime); flex:0 0 auto; }
+  .brand .name{
+    font-family:var(--font-display);
+    font-size:19px; letter-spacing:.02em; text-transform:uppercase;
+    color:var(--ink);
   }
+  .brand .ver{ color:var(--dim); }
+
+  /* ============ ЗАГОЛОВОК ============ */
   h1{
-    font-family:'Anton',sans-serif;
-    font-size:clamp(40px, 9vw, 64px);
-    line-height:.95;
+    font-family:var(--font-display);
+    font-size:clamp(42px,11.5vw,74px);
+    line-height:.92;
     text-transform:uppercase;
-    margin-bottom:14px;
+    letter-spacing:.005em;
+    margin:0 0 16px;
   }
-  h1 em{ font-style:normal; color:var(--pink); }
+  h1 em{
+    font-style:normal; color:var(--lime);
+    text-shadow:4px 4px 0 rgba(46,98,255,.55);
+  }
   .lead{
-    font-size:17px; line-height:1.5;
-    margin-bottom:24px;
-    max-width:52ch;
+    font-size:15.5px; line-height:1.75;
+    color:rgba(242,245,236,.78);
+    max-width:50ch;
+    margin:0 0 30px;
   }
-  .lead b{ background:var(--yellow); padding:0 4px; }
+  .lead b{
+    color:var(--ink); font-weight:700;
+    box-shadow:inset 0 -.5em 0 rgba(198,244,50,.22);
+  }
+
+  /* ============ НУМЕРАЦИЯ СЕКЦИЙ ============ */
+  .sec-head{
+    display:flex; align-items:center; gap:12px;
+    margin:0 0 14px;
+  }
+  .sec-head .num{
+    color:var(--lime); font-weight:700; letter-spacing:.16em;
+    white-space:nowrap;
+  }
+  .sec-head .rule{ flex:1 1 auto; height:1px; background:var(--line); }
+  .sec-head .meta{ color:var(--dim); letter-spacing:.1em; white-space:nowrap; }
+  /* нумерация секции внутри карточки (экран успеха) */
+  .sec-head.in-card{ margin:-4px 0 22px; }
+
+  /* ============ ФОРМА ============ */
   form{
-    border:3px solid var(--black);
-    background:var(--cream);
-    padding:20px 18px 22px;
-    box-shadow:8px 8px 0 var(--black);
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:22px 18px 20px;
   }
-  .f{ margin-bottom:16px; }
+  /* уголки-метки как в City Code */
+  form::before,form::after{
+    content:""; position:absolute; width:14px; height:14px; pointer-events:none;
+  }
+  form::before{ top:-1px; left:-1px; border-top:2px solid var(--lime); border-left:2px solid var(--lime); }
+  form::after{ bottom:-1px; right:-1px; border-bottom:2px solid var(--blue); border-right:2px solid var(--blue); }
+
+  .f{ margin-bottom:18px; }
   .f label{
-    display:block;
-    font-weight:800; font-size:13px;
-    text-transform:uppercase; letter-spacing:.8px;
-    margin-bottom:6px;
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+    font-family:var(--font-mono);
+    font-size:10.5px; font-weight:500;
+    text-transform:uppercase; letter-spacing:.14em;
+    color:var(--ink);
+    margin-bottom:8px;
   }
-  .f label .req{ color:var(--pink); }
-  .f label .opt{ color:var(--gray); font-weight:600; text-transform:none; letter-spacing:0; }
-  .f input, .f select, .f textarea{
+  .f label .idx{ color:var(--dim); letter-spacing:.1em; }
+  .f label .req{ color:var(--lime); font-weight:700; }
+  .f label .opt{
+    color:var(--dim); letter-spacing:.06em; text-transform:none;
+    font-family:var(--font-sans); font-size:12px; font-weight:500;
+  }
+
+  .f input,.f select,.f textarea{
     width:100%;
-    border:2px solid var(--black);
-    background:#fff;
-    padding:12px 12px;
-    font:600 16px 'Archivo',sans-serif;
-    color:var(--black);
+    background:var(--card);
+    border:1px solid var(--line-soft);
     border-radius:0;
+    padding:13px 13px;
+    font:500 16px/1.35 var(--font-sans);
+    color:#FFFFFF;
+    accent-color:var(--lime);
     -webkit-appearance:none; appearance:none;
+    transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
   }
-  .f textarea{ min-height:74px; resize:vertical; font-weight:400; }
+  .f textarea{ min-height:88px; resize:vertical; font-weight:400; }
+  .f input::placeholder,.f textarea::placeholder{ color:var(--dim); font-weight:400; }
+  .f input:hover,.f select:hover,.f textarea:hover{ border-color:rgba(198,244,50,.4); }
+  .f input:focus,.f select:focus,.f textarea:focus{
+    outline:none;
+    border-color:var(--lime);
+    background:#151810;
+    box-shadow:0 0 0 1px rgba(198,244,50,.35), 0 0 20px rgba(198,244,50,.18);
+  }
   .f select{
-    background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%2318140F' stroke-width='2' fill='none'/></svg>") no-repeat right 12px center;
+    color:#FFFFFF;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%23C6F432' stroke-width='2' fill='none'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 13px center;
+    padding-right:38px;
   }
-  .row{ display:flex; gap:12px; }
-  .row .f{ flex:1; }
-  @media (max-width:520px){ .row{ display:block; } }
-  .hint{ font-size:13px; color:var(--gray); margin-top:5px; }
+  .f select option{ background:#12140E; color:#F2F5EC; }
+  .f input[type="checkbox"]{
+    width:auto; accent-color:var(--lime);
+  }
+
+  .row{ display:flex; gap:14px; }
+  .row .f{ flex:1 1 0; min-width:0; }
+
+  .hint{ color:var(--dim); font-size:12px; line-height:1.5; margin-top:7px; }
+
   .submit{
     width:100%;
     margin-top:6px;
-    border:3px solid var(--black);
-    background:var(--pink);
-    color:#fff;
-    font:800 18px 'Archivo',sans-serif;
-    text-transform:uppercase; letter-spacing:.5px;
-    padding:16px;
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    background:var(--lime);
+    border:1px solid var(--lime);
+    color:#0A0B09;
+    font:800 15px/1 var(--font-sans);
+    text-transform:uppercase; letter-spacing:.1em;
+    padding:18px 18px;
     cursor:pointer;
-    box-shadow:5px 5px 0 var(--black);
-    transition:transform .05s, box-shadow .05s;
+    box-shadow:0 0 0 rgba(198,244,50,0);
+    transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .1s ease;
   }
-  .submit:disabled{ opacity:.6; cursor:wait; }
-  .submit:active{ transform:translate(3px,3px); box-shadow:2px 2px 0 var(--black); }
+  /* стрелка — псевдоэлемент: JS меняет только текст кнопки, она остаётся на месте */
+  .submit::after{
+    content:"→";
+    font-family:var(--font-mono); font-weight:700; font-size:14px;
+    transition:transform .18s ease;
+  }
+  .submit:hover{
+    background:var(--blue); border-color:var(--blue); color:#FFFFFF;
+    box-shadow:0 12px 34px rgba(46,98,255,.40);
+  }
+  .submit:hover::after{ transform:translateX(4px); }
+  .submit:active{ transform:translateY(1px); box-shadow:0 4px 14px rgba(46,98,255,.3); }
+  .submit:disabled{ opacity:.5; cursor:progress; box-shadow:none; }
 
-  /* экран «Заявка отправлена» */
+  .submit-meta{
+    display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    margin-top:12px; color:var(--dim); letter-spacing:.12em;
+  }
+  .submit-meta .ok{ color:var(--lime); }
+
+  /* ============ ЭКРАН УСПЕХА ============ */
   .success{
     display:none;
-    border:3px solid var(--black);
-    background:var(--yellow);
-    padding:26px 20px 22px;
-    box-shadow:8px 8px 0 var(--black);
+    position:relative;
+    background:var(--card);
+    border:1px solid var(--lime);
+    box-shadow:0 0 46px rgba(198,244,50,.12);
+    padding:30px 20px 24px;
     text-align:center;
   }
   .success .mark{
-    display:inline-block;
-    width:64px; height:64px; line-height:60px;
-    border:3px solid var(--black); border-radius:50%;
-    background:var(--pink); color:#fff;
-    font-size:34px; font-weight:800;
-    margin-bottom:14px;
+    display:inline-flex; align-items:center; justify-content:center;
+    width:64px; height:64px;
+    border:1px solid var(--lime); border-radius:50%;
+    background:var(--lime); color:#0A0B09;
+    font-size:30px; font-weight:800;
+    margin-bottom:16px;
+    box-shadow:0 0 30px rgba(198,244,50,.35);
   }
   .success h2{
-    font-family:'Anton',sans-serif;
-    font-size:clamp(26px, 6vw, 34px);
-    text-transform:uppercase; line-height:1;
-    margin-bottom:10px;
+    font-family:var(--font-display);
+    font-size:clamp(26px,7vw,36px);
+    line-height:1; text-transform:uppercase;
+    color:var(--ink);
+    margin:0 0 12px;
   }
-  .success p{ font-weight:600; font-size:15px; line-height:1.6; margin-bottom:18px; }
+  .success .status{
+    display:inline-block; color:var(--lime);
+    border:1px solid var(--line); padding:5px 10px;
+    margin-bottom:14px; letter-spacing:.16em;
+  }
+  .success p{
+    font-size:14.5px; line-height:1.7; color:var(--muted);
+    margin:0 auto 20px; max-width:40ch;
+  }
   .success .again{
-    border:2px solid var(--black); background:transparent; color:var(--black);
-    font:800 14px 'Archivo',sans-serif; text-transform:uppercase;
-    padding:11px 16px; cursor:pointer; width:100%;
+    width:100%;
+    background:transparent; border:1px solid var(--line);
+    color:var(--lime);
+    font-family:var(--font-mono); font-size:11.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.14em;
+    padding:15px 16px; cursor:pointer;
+    transition:background-color .18s ease,border-color .18s ease,color .18s ease;
   }
+  .success .again:hover{ background:var(--blue); border-color:var(--blue); color:#FFFFFF; }
 
-  /* ошибка отправки + запасной вариант «скопировать текст» */
+  /* ============ РЕЗЕРВНЫЙ РЕЖИМ (скопировать текст в бота) ============ */
   .errorbox{
     display:none;
-    margin-top:16px;
-    border:3px solid var(--black);
-    background:#fff;
-    padding:16px;
-    box-shadow:6px 6px 0 var(--black);
+    margin-top:18px;
+    background:var(--card);
+    border:1px solid rgba(46,98,255,.5);
+    box-shadow:0 0 34px rgba(46,98,255,.12);
+    padding:20px 18px;
   }
   .errorbox h3{
-    font-family:'Anton',sans-serif; font-size:18px;
-    text-transform:uppercase; margin-bottom:8px;
+    font-family:var(--font-display);
+    font-size:19px; text-transform:uppercase; letter-spacing:.01em;
+    color:var(--ink);
+    margin:0 0 6px;
   }
-  .errorbox p{ font-size:14px; line-height:1.6; margin-bottom:12px; font-weight:600; }
+  .errorbox .badge{
+    display:inline-block; color:#9FB4FF;
+    border:1px solid rgba(46,98,255,.55); padding:4px 9px;
+    margin-bottom:12px; letter-spacing:.16em;
+  }
+  .errorbox p{
+    font-size:13.5px; line-height:1.7; color:var(--muted);
+    margin:0 0 14px;
+  }
+  .errorbox p a{ color:var(--lime); text-decoration:none; border-bottom:1px solid var(--line); }
+  .errorbox p a:hover{ border-color:var(--lime); }
   .errorbox textarea{
-    width:100%; min-height:130px;
-    border:2px solid var(--black); background:var(--cream);
-    font:400 14px 'Archivo',sans-serif;
-    padding:10px; resize:vertical;
+    width:100%; min-height:150px;
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-radius:0;
+    color:var(--ink);
+    font:400 13.5px/1.6 var(--font-mono);
+    padding:12px; resize:vertical;
+  }
+  .errorbox textarea:focus{
+    outline:none; border-color:var(--lime);
+    box-shadow:0 0 0 1px rgba(198,244,50,.3), 0 0 18px rgba(198,244,50,.15);
   }
   .errorbox .copybtn{
-    margin-top:10px;
-    border:2px solid var(--black); background:var(--black); color:var(--cream);
-    font:800 14px 'Archivo',sans-serif; text-transform:uppercase;
-    padding:11px 16px; cursor:pointer; width:100%;
+    width:100%; margin-top:12px;
+    background:transparent; border:1px solid var(--lime);
+    color:var(--lime);
+    font-family:var(--font-mono); font-size:11.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.14em;
+    padding:15px 16px; cursor:pointer;
+    transition:background-color .18s ease,border-color .18s ease,color .18s ease;
   }
+  .errorbox .copybtn:hover{ background:var(--blue); border-color:var(--blue); color:#FFFFFF; }
 
+  /* ============ ФУТЕР ============ */
   .foot{
     margin-top:26px;
     display:flex; flex-wrap:wrap; gap:10px;
   }
   .foot a{
-    font:800 14px 'Archivo',sans-serif;
-    color:var(--black); text-decoration:none;
-    border:2px solid var(--black);
-    padding:9px 14px;
-    background:transparent;
+    flex:1 1 auto; text-align:center;
+    font-family:var(--font-mono); font-size:11px; font-weight:700;
+    letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink); text-decoration:none;
+    border:1px solid var(--line);
+    padding:14px 14px;
+    transition:color .18s ease,border-color .18s ease,background-color .18s ease,transform .15s ease;
   }
-  .foot a.pink{ background:var(--pink); color:#fff; }
-  .note{ margin-top:18px; font-size:13px; color:var(--gray); line-height:1.6; }
+  .foot a:hover{ color:var(--lime); border-color:var(--lime); transform:translateY(-2px); }
+  .foot a.primary{
+    background:var(--lime); border-color:var(--lime); color:#0A0B09;
+  }
+  .foot a.primary:hover{ background:var(--blue); border-color:var(--blue); color:#FFFFFF; }
+
+  .note{
+    margin-top:20px; color:var(--muted);
+    font-size:13px; line-height:1.7;
+  }
+  .sysline{
+    margin-top:26px; padding-top:14px;
+    border-top:1px solid var(--line-soft);
+    display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    color:var(--dim); letter-spacing:.14em;
+  }
+
+  /* ============ МОБИЛЬНАЯ АДАПТИВНОСТЬ ============ */
+  @media (max-width:560px){
+    .wrap{ padding:20px 14px 44px; }
+    .row{ display:block; }
+    .row .f{ width:100%; }
+    form{ padding:18px 14px 18px; }
+    .top .coord{ display:none; }
+    .brand{ margin-bottom:18px; }
+    .lead{ font-size:15px; }
+    .f input,.f select,.f textarea{ font-size:16px; padding:14px 12px; }
+    .submit{ padding:18px 14px; font-size:14px; letter-spacing:.08em; }
+    .foot a{ flex:1 1 100%; }
+    .sec-head .meta{ display:none; }
+  }
+  @media (max-width:360px){
+    h1{ font-size:38px; }
+    .tag{ font-size:9.5px; letter-spacing:.08em; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{ scroll-behavior:auto; }
+    *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="top">
+    <span class="tag">SEVASTOPOL AI — 07 / SUGGEST</span>
+    <span class="coord mono">44.6167° N · 33.5258° E</span>
+  </div>
+
+  <div class="brand">
     <div class="sq"></div>
-    <div class="brand">SEVASTOPOL AI</div>
+    <div class="name">SEVASTOPOL AI</div>
+    <div class="ver mono">BOT v1.2</div>
   </div>
 
   <h1>Предложи<br><em>место</em></h1>
@@ -195,15 +423,21 @@
     Проверю и добавлю в бота.
   </p>
 
+  <div class="sec-head">
+    <span class="num mono">01 / ЗАЯВКА</span>
+    <span class="rule"></span>
+    <span class="meta mono">FORM · JSON · POST</span>
+  </div>
+
   <form id="sform" autocomplete="off">
     <div class="f">
-      <label>Название <span class="req">*</span></label>
+      <label for="f_name"><span class="idx">01</span> Название <span class="req">*</span></label>
       <input type="text" id="f_name" maxlength="80" placeholder="Например: кофейня «Кристалл»" required>
     </div>
 
     <div class="row">
       <div class="f">
-        <label>Категория</label>
+        <label for="f_cat"><span class="idx">02</span> Категория</label>
         <select id="f_cat">
           <option>Кофе</option><option>Рестораны</option><option>Кафе</option>
           <option>Пекарни</option><option>Кондитерские</option><option>Доставки</option>
@@ -214,50 +448,61 @@
         </select>
       </div>
       <div class="f">
-        <label>Адрес / район <span class="req">*</span></label>
+        <label for="f_addr"><span class="idx">03</span> Адрес / район <span class="req">*</span></label>
         <input type="text" id="f_addr" maxlength="120" placeholder="ул. Пушкина, 4 / Балаклава" required>
       </div>
     </div>
 
     <div class="row">
       <div class="f">
-        <label>Цены <span class="opt">(опционально)</span></label>
+        <label for="f_price"><span class="idx">04</span> Цены <span class="opt">(опционально)</span></label>
         <input type="text" id="f_price" maxlength="80" placeholder="250–500 ₽">
       </div>
       <div class="f">
-        <label>Телефон <span class="opt">(опционально)</span></label>
+        <label for="f_phone"><span class="idx">05</span> Телефон <span class="opt">(опционально)</span></label>
         <input type="text" id="f_phone" maxlength="30" placeholder="+7 …">
       </div>
     </div>
 
     <div class="f">
-      <label>Ссылки <span class="opt">(сайт / VK / Instagram / Telegram, по одной на строку)</span></label>
+      <label for="f_links"><span class="idx">06</span> Ссылки <span class="opt">(сайт / VK / Instagram / Telegram, по одной на строку)</span></label>
       <textarea id="f_links" maxlength="500" placeholder="https://…"></textarea>
     </div>
 
     <div class="f">
-      <label>Почему стоит сходить <span class="opt">(опционально)</span></label>
+      <label for="f_desc"><span class="idx">07</span> Почему стоит сходить <span class="opt">(опционально)</span></label>
       <textarea id="f_desc" maxlength="700" placeholder="Лучший раф в городе, своя обжарка, вид на бухту…"></textarea>
     </div>
 
     <div class="f">
-      <label>Как с тобой связаться <span class="opt">(опционально)</span></label>
+      <label for="f_contact"><span class="idx">08</span> Как с тобой связаться <span class="opt">(опционально)</span></label>
       <input type="text" id="f_contact" maxlength="60" placeholder="@username или телефон">
     </div>
 
     <button type="submit" class="submit" id="sendbtn">Отправить</button>
+    <div class="submit-meta mono">
+      <span><span class="ok">●</span> обязательны: название, адрес</span>
+      <span>TLS · WORKER API</span>
+    </div>
   </form>
 
   <!-- показывается после успешной отправки -->
   <div class="success" id="success">
+    <div class="sec-head in-card">
+      <span class="num mono">02 / ГОТОВО</span>
+      <span class="rule"></span>
+      <span class="meta mono">POST → TG</span>
+    </div>
     <span class="mark">✓</span>
     <h2>Заявка отправлена</h2>
+    <span class="status mono">STATUS: OK · ДОСТАВЛЕНО</span>
     <p>Спасибо! 🙌 Проверю и добавлю место в базу — оно появится в боте.</p>
     <button type="button" class="again" id="againbtn">Предложить ещё одно место</button>
   </div>
 
   <!-- показывается, если сервис недоступен: текст можно скопировать в бот вручную -->
   <div class="errorbox" id="errorbox">
+    <span class="badge mono">FALLBACK / РЕЗЕРВНЫЙ РЕЖИМ</span>
     <h3>Не получилось отправить</h3>
     <p>Сервис приёма заявок временно недоступен. Скопируй текст ниже и вставь его в чат с ботом <a href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">@SevastopolAiBot</a> — заявка всё равно дойдёт.</p>
     <textarea id="readybox" readonly></textarea>
@@ -265,7 +510,7 @@
   </div>
 
   <div class="foot">
-    <a class="pink" href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">🤖 Бот Sevastopol AI</a>
+    <a class="primary" href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">🤖 Бот Sevastopol AI</a>
     <a href="https://t.me/Sevastopol_AI" target="_blank" rel="noopener">📰 Новости города</a>
   </div>
 
@@ -274,14 +519,18 @@
     в ответном сообщении — если оставишь контакт, свяжусь сам.
   </p>
 
+  <div class="sysline mono">
+    <span>SEVASTOPOL AI ✦ CITY CODE</span>
+    <span>EST. 2026</span>
+  </div>
+
 </div>
 
 <script>
 (function(){
-  // ⚠️ АДРЕС МИКРОСЕРВИСА (Cloudflare Worker).
-  // После деплоя вставь сюда адрес вида https://sevastopol-suggest.имя.workers.dev
-  // (см. worker/README.md в репозитории). Пока стоит заглушка — форма работает
-  // в резервном режиме: предлагает скопировать текст заявки в бота.
+  // АДРЕС МИКРОСЕРВИСА (Cloudflare Worker) — задеплоен, секрет BOT_TOKEN настроен.
+  // См. worker/README.md в репозитории. Если сервис станет недоступен,
+  // форма сама перейдёт в резервный режим: предложит скопировать текст заявки в бота.
   var WORKER_URL = "https://sevastopol-suggest.web3yurich.workers.dev";
 
   var form = document.getElementById("sform");
