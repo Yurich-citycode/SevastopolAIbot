@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Предложи место — Sevastopol AI</title>
+<meta name="description" content="Знаешь место в Севастополе, которого нет в боте? Скинь — добавим в базу.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F1E9D8; --black:#18140F; --pink:#E8377E; --yellow:#FFD23F;
+    --gray:rgba(24,20,15,.55);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    background:var(--cream);
+    color:var(--black);
+    font-family:'Archivo',system-ui,sans-serif;
+    min-height:100vh;
+  }
+  /* халфтон-фон, как на всех страницах системы */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:radial-gradient(rgba(24,20,15,.08) 1px, transparent 1.6px);
+    background-size:6px 6px;
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{
+    position:relative; z-index:1;
+    max-width:600px; margin:0 auto;
+    padding:28px 20px 60px;
+  }
+  .top{
+    display:flex; align-items:center; gap:10px;
+    margin-bottom:26px;
+  }
+  .top .sq{ width:22px; height:22px; background:var(--pink); flex:0 0 auto; }
+  .top .brand{
+    font-family:'Anton',sans-serif;
+    font-size:20px; letter-spacing:.5px;
+  }
+  h1{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(40px, 9vw, 64px);
+    line-height:.95;
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  h1 em{ font-style:normal; color:var(--pink); }
+  .lead{
+    font-size:17px; line-height:1.5;
+    margin-bottom:24px;
+    max-width:52ch;
+  }
+  .lead b{ background:var(--yellow); padding:0 4px; }
+  form{
+    border:3px solid var(--black);
+    background:var(--cream);
+    padding:20px 18px 22px;
+    box-shadow:8px 8px 0 var(--black);
+  }
+  .f{ margin-bottom:16px; }
+  .f label{
+    display:block;
+    font-weight:800; font-size:13px;
+    text-transform:uppercase; letter-spacing:.8px;
+    margin-bottom:6px;
+  }
+  .f label .req{ color:var(--pink); }
+  .f label .opt{ color:var(--gray); font-weight:600; text-transform:none; letter-spacing:0; }
+  .f input, .f select, .f textarea{
+    width:100%;
+    border:2px solid var(--black);
+    background:#fff;
+    padding:12px 12px;
+    font:600 16px 'Archivo',sans-serif;
+    color:var(--black);
+    border-radius:0;
+    -webkit-appearance:none; appearance:none;
+  }
+  .f textarea{ min-height:74px; resize:vertical; font-weight:400; }
+  .f select{
+    background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%2318140F' stroke-width='2' fill='none'/></svg>") no-repeat right 12px center;
+  }
+  .row{ display:flex; gap:12px; }
+  .row .f{ flex:1; }
+  .hint{ font-size:13px; color:var(--gray); margin-top:5px; }
+  .submit{
+    width:100%;
+    margin-top:6px;
+    border:3px solid var(--black);
+    background:var(--pink);
+    color:#fff;
+    font:800 18px 'Archivo',sans-serif;
+    text-transform:uppercase; letter-spacing:.5px;
+    padding:16px;
+    cursor:pointer;
+    box-shadow:5px 5px 0 var(--black);
+    transition:transform .05s, box-shadow .05s;
+  }
+  .submit:active{ transform:translate(3px,3px); box-shadow:2px 2px 0 var(--black); }
+  .after{
+    display:none;
+    margin-top:22px;
+    border:3px solid var(--black);
+    background:var(--yellow);
+    padding:18px;
+    box-shadow:8px 8px 0 var(--black);
+  }
+  .after h2{ font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase; margin-bottom:10px; }
+  .after ol{ margin:0 0 14px 20px; font-weight:600; font-size:15px; line-height:1.7; }
+  .after textarea{
+    width:100%; min-height:150px;
+    border:2px solid var(--black); background:#fff;
+    font:400 14px 'Archivo',sans-serif;
+    padding:10px; resize:vertical;
+  }
+  .after .copybtn{
+    margin-top:10px;
+    border:2px solid var(--black); background:var(--black); color:var(--cream);
+    font:800 14px 'Archivo',sans-serif; text-transform:uppercase;
+    padding:11px 16px; cursor:pointer; width:100%;
+  }
+  .foot{
+    margin-top:26px;
+    display:flex; flex-wrap:wrap; gap:10px;
+  }
+  .foot a{
+    font:800 14px 'Archivo',sans-serif;
+    color:var(--black); text-decoration:none;
+    border:2px solid var(--black);
+    padding:9px 14px;
+    background:transparent;
+  }
+  .foot a.pink{ background:var(--pink); color:#fff; }
+  .note{ margin-top:18px; font-size:13px; color:var(--gray); line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="sq"></div>
+    <div class="brand">SEVASTOPOL AI</div>
+  </div>
+
+  <h1>Предложи<br><em>место</em></h1>
+  <p class="lead">
+    База живая: <b>162 заведения</b>, 55 локаций, маршруты и афиша.
+    Если ты знаешь место, которого тут ещё нет, — кофейню с лучшим рафом,
+    смотровую с закатом, пекарню с круассанами — <b>скинь</b>.
+    Проверю и добавлю в бота.
+  </p>
+
+  <form id="sform" autocomplete="off">
+    <div class="f">
+      <label>Название <span class="req">*</span></label>
+      <input type="text" id="f_name" maxlength="80" placeholder="Например: кофейня «Кристалл»" required>
+    </div>
+
+    <div class="row">
+      <div class="f">
+        <label>Категория</label>
+        <select id="f_cat">
+          <option>Кофе</option><option>Рестораны</option><option>Кафе</option>
+          <option>Пекарни</option><option>Кондитерские</option><option>Доставки</option>
+          <option>Пляжи</option><option>Смотровые</option><option>Закаты</option>
+          <option>Hidden Gems</option><option>Прогулки</option>
+          <option>Достопримечательности</option><option>Музеи</option>
+          <option>Маршруты</option><option>Событие</option><option>Другое</option>
+        </select>
+      </div>
+      <div class="f">
+        <label>Адрес / район <span class="req">*</span></label>
+        <input type="text" id="f_addr" maxlength="120" placeholder="ул. Пушкина, 4 / Балаклава" required>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="f">
+        <label>Цены <span class="opt">(опционально)</span></label>
+        <input type="text" id="f_price" maxlength="80" placeholder="250–500 ₽">
+      </div>
+      <div class="f">
+        <label>Телефон <span class="opt">(опционально)</span></label>
+        <input type="text" id="f_phone" maxlength="30" placeholder="+7 …">
+      </div>
+    </div>
+
+    <div class="f">
+      <label>Ссылки <span class="opt">(сайт / VK / Instagram / Telegram, по одной на строку)</span></label>
+      <textarea id="f_links" maxlength="500" placeholder="https://…"></textarea>
+    </div>
+
+    <div class="f">
+      <label>Почему стоит сходить <span class="opt">(опционально)</span></label>
+      <textarea id="f_desc" maxlength="700" placeholder="Лучший раф в городе, своя обжарка, вид на бухту…"></textarea>
+    </div>
+
+    <div class="f">
+      <label>Как с тобой связаться <span class="opt">(опционально)</span></label>
+      <input type="text" id="f_contact" maxlength="60" placeholder="@username или телефон">
+    </div>
+
+    <button type="submit" class="submit">📋 Скопировать и открыть бота</button>
+  </form>
+
+  <div class="after" id="after">
+    <h2>Почти готово</h2>
+    <ol>
+      <li>Скопированный текст — <b>вставь в чат с ботом</b> (Ctrl+V, на телефоне — долгий тап → «Вставить»).</li>
+      <li>Нажми «Отправить». Готово.</li>
+    </ol>
+    <textarea id="readybox" readonly></textarea>
+    <button type="button" class="copybtn" id="copybtn">📋 Скопировать текст ещё раз</button>
+  </div>
+
+  <div class="foot">
+    <a class="pink" href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">🤖 Бот Sevastopol AI</a>
+    <a href="https://t.me/Sevastopol_AI" target="_blank" rel="noopener">📰 Новости города</a>
+  </div>
+
+  <p class="note">
+    Фото и геоточку удобнее прислать прямо в боте: кнопка «✍️ Предложить место»
+    в главном меню — бот примет текст, фото и геопозицию.
+  </p>
+
+</div>
+
+<script>
+(function(){
+  var BOT = "https://t.me/SevastopolAiBot";
+  var PREFIX = "✍️ ПРЕДЛОЖЕНИЕ: новое место";
+  var form = document.getElementById("sform");
+  var after = document.getElementById("after");
+  var box = document.getElementById("readybox");
+
+  function v(id){ return document.getElementById(id).value.trim(); }
+
+  function buildText(){
+    var lines = [PREFIX,
+      "📌 Название: " + v("f_name"),
+      "🏷 Категория: " + v("f_cat"),
+      "📍 Адрес/район: " + v("f_addr")
+    ];
+    if (v("f_price"))  lines.push("💰 Цены: " + v("f_price"));
+    if (v("f_phone"))  lines.push("📞 Телефон: " + v("f_phone"));
+    if (v("f_links"))  lines.push("🔗 Ссылки: " + v("f_links").split("\n").filter(Boolean).join(" · "));
+    if (v("f_desc"))   lines.push("📝 Описание: " + v("f_desc"));
+    if (v("f_contact"))lines.push("👤 Связь: " + v("f_contact"));
+    return lines.join("\n");
+  }
+
+  function copy(t, cb){
+    function legacy(){
+      box.value = t;
+      box.focus();
+      box.select();
+      try{ document.execCommand("copy"); }catch(e){}
+      cb();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(cb, legacy);
+    } else legacy();
+  }
+
+  document.getElementById("copybtn").addEventListener("click", function(){
+    copy(box.value, function(){
+      this.textContent = "✓ Скопировано";
+      var b = this;
+      setTimeout(function(){ b.textContent = "📋 Скопировать текст ещё раз"; }, 1500);
+    }.bind(this));
+  });
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    var t = buildText();
+    box.value = t;
+    after.style.display = "block";
+    after.scrollIntoView({ behavior:"smooth", block:"center" });
+    copy(t, function(){
+      window.open(BOT, "_blank");
+    });
+  });
+})();
+</script>
+</body>
+</html>
