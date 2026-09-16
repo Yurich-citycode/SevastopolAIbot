@@ -79,11 +79,12 @@ python events/forwarder.py run --reset
 Ячейка 1 — получить репозиторий и токен:
 ```python
 import os
-if not os.path.exists("SevastopolAIbot"):
-    !git clone https://github.com/Yurich-citycode/SevastopolAIbot.git
+os.chdir("/content")
+if not os.path.exists("/content/SevastopolAIbot"):
+    get_ipython().system("git clone https://github.com/Yurich-citycode/SevastopolAIbot.git")
 else:
-    %cd /content/SevastopolAIbot && !git pull && %cd /content
-%cd /content/SevastopolAIbot
+    get_ipython().system("git -C /content/SevastopolAIbot pull")
+os.chdir("/content/SevastopolAIbot")
 os.environ["FORWARDER_BOT_TOKEN"] = "СЮДА_ТОКЕН_ВТОРОГО_БОТА"
 ```
 
