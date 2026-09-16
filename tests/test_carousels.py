@@ -353,32 +353,38 @@ async def test_callbacks():
           "📰 Новости города" in t and bot.NEWS_CHANNEL_URL in u)
     check("меню: ссылка на канал = t.me/Sevastopol_AI",
           bot.NEWS_CHANNEL_URL == "https://t.me/Sevastopol_AI")
-    check("меню: «✍️ Предложить место»", "✍️ Предложить место" in t and "suggest_place" in c)
+    check("меню: «✍️ Предложить место» — URL-кнопка на форму",
+          "✍️ Предложить место" in t and bot.SUGGEST_FORM_URL in u)
 
-    # 7.7 «Предложить место»: стейт + получение предложения
+    # 7.7 «Предложить место»: теперь URL-кнопка (форма на GitHub Pages);
+    # старый колбэк от прежних клавиатур мягко ведёт в форму, диалога больше нет
     st5 = FakeState()
     call7 = FakeCall("suggest_place")
     await bot._route_callback(call7, st5)
-    check("suggest_place: ждём сообщение", st5.state is bot.SuggestPlace.waiting)
-    t7, c7, _ = kb_texts(call7.message.last_markup())
-    check("suggest_place: есть «❌ Отмена»", "suggest_cancel" in c7)
+    check("suggest_place: подсказка со ссылкой на форму",
+          any("Форма предложений" in (d.get("text") or "") for _, d in call7.message.sent))
+    t7, c7, u7 = kb_texts(call7.message.last_markup())
+    check("suggest_place: инлайн-кнопка «Открыть форму»",
+          bot.SUGGEST_FORM_URL in u7)
 
-    msg = FakeMessage(text="Тотальный, ул. Нахимова 2, крутой вид")
+    # текст со стрелкой старой формы (вставленный в чат) по-прежнему доходит
+    # владельцу через fallback_message
+    msg = FakeMessage(text=bot.SUGGEST_WEB_PREFIX + " новое место\nТотальный, ул. Нахимова 2")
     msg.from_user = FakeUser(id=777, username="suga", full_name="Сюга")
-    await bot.receive_suggestion(msg, st5)
+    await bot.fallback_message(msg, st5)
     copied = [d for k, d in msg.sent if k == "copy_to"]
-    check("предложение переслано владельцу (ADMIN_ID)",
+    check("веб-предложение переслано владельцу (ADMIN_ID)",
           len(copied) == 1 and copied[0]["chat_id"] == bot.ADMIN_ID)
-    check("статус стейта сброшен", st5.state is None)
-    check("за предложение дали +5 XP", bot.PASSPORTS[777]["xp"] >= 15)  # 10 (создание) + 5
     check("пользователю подтверждение", "Передала владельцу" in msg.last_text())
+    check("за предложение дали +5 XP", bot.PASSPORTS[777]["xp"] >= 15)  # 10 (создание) + 5
 
-    # 7.8 suggest_cancel
+    # 7.8 suggest_cancel (остаток старой клавиатуры): колбэк не роняет бот
     st6 = FakeState()
-    st6.state = bot.SuggestPlace.waiting
+    st6.state = None
     call8 = FakeCall("suggest_cancel")
     await bot._route_callback(call8, st6)
-    check("suggest_cancel: стейт очищен", st6.state is None)
+    check("suggest_cancel: подсказка со ссылкой на форму",
+          any(bot.SUGGEST_FORM_URL in (d.get("text") or "") for _, d in call8.message.sent))
 
 
 asyncio.run(test_callbacks())

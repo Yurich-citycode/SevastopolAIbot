@@ -89,6 +89,7 @@
   }
   .row{ display:flex; gap:12px; }
   .row .f{ flex:1; }
+  @media (max-width:520px){ .row{ display:block; } }
   .hint{ font-size:13px; color:var(--gray); margin-top:5px; }
   .submit{
     width:100%;
@@ -103,29 +104,66 @@
     box-shadow:5px 5px 0 var(--black);
     transition:transform .05s, box-shadow .05s;
   }
+  .submit:disabled{ opacity:.6; cursor:wait; }
   .submit:active{ transform:translate(3px,3px); box-shadow:2px 2px 0 var(--black); }
-  .after{
+
+  /* экран «Заявка отправлена» */
+  .success{
     display:none;
-    margin-top:22px;
     border:3px solid var(--black);
     background:var(--yellow);
-    padding:18px;
+    padding:26px 20px 22px;
     box-shadow:8px 8px 0 var(--black);
+    text-align:center;
   }
-  .after h2{ font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase; margin-bottom:10px; }
-  .after ol{ margin:0 0 14px 20px; font-weight:600; font-size:15px; line-height:1.7; }
-  .after textarea{
-    width:100%; min-height:150px;
-    border:2px solid var(--black); background:#fff;
+  .success .mark{
+    display:inline-block;
+    width:64px; height:64px; line-height:60px;
+    border:3px solid var(--black); border-radius:50%;
+    background:var(--pink); color:#fff;
+    font-size:34px; font-weight:800;
+    margin-bottom:14px;
+  }
+  .success h2{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(26px, 6vw, 34px);
+    text-transform:uppercase; line-height:1;
+    margin-bottom:10px;
+  }
+  .success p{ font-weight:600; font-size:15px; line-height:1.6; margin-bottom:18px; }
+  .success .again{
+    border:2px solid var(--black); background:transparent; color:var(--black);
+    font:800 14px 'Archivo',sans-serif; text-transform:uppercase;
+    padding:11px 16px; cursor:pointer; width:100%;
+  }
+
+  /* ошибка отправки + запасной вариант «скопировать текст» */
+  .errorbox{
+    display:none;
+    margin-top:16px;
+    border:3px solid var(--black);
+    background:#fff;
+    padding:16px;
+    box-shadow:6px 6px 0 var(--black);
+  }
+  .errorbox h3{
+    font-family:'Anton',sans-serif; font-size:18px;
+    text-transform:uppercase; margin-bottom:8px;
+  }
+  .errorbox p{ font-size:14px; line-height:1.6; margin-bottom:12px; font-weight:600; }
+  .errorbox textarea{
+    width:100%; min-height:130px;
+    border:2px solid var(--black); background:var(--cream);
     font:400 14px 'Archivo',sans-serif;
     padding:10px; resize:vertical;
   }
-  .after .copybtn{
+  .errorbox .copybtn{
     margin-top:10px;
     border:2px solid var(--black); background:var(--black); color:var(--cream);
     font:800 14px 'Archivo',sans-serif; text-transform:uppercase;
     padding:11px 16px; cursor:pointer; width:100%;
   }
+
   .foot{
     margin-top:26px;
     display:flex; flex-wrap:wrap; gap:10px;
@@ -207,17 +245,23 @@
       <input type="text" id="f_contact" maxlength="60" placeholder="@username или телефон">
     </div>
 
-    <button type="submit" class="submit">📋 Скопировать и открыть бота</button>
+    <button type="submit" class="submit" id="sendbtn">Отправить</button>
   </form>
 
-  <div class="after" id="after">
-    <h2>Почти готово</h2>
-    <ol>
-      <li>Скопированный текст — <b>вставь в чат с ботом</b> (Ctrl+V, на телефоне — долгий тап → «Вставить»).</li>
-      <li>Нажми «Отправить». Готово.</li>
-    </ol>
+  <!-- показывается после успешной отправки -->
+  <div class="success" id="success">
+    <span class="mark">✓</span>
+    <h2>Заявка отправлена</h2>
+    <p>Спасибо! 🙌 Проверю и добавлю место в базу — оно появится в боте.</p>
+    <button type="button" class="again" id="againbtn">Предложить ещё одно место</button>
+  </div>
+
+  <!-- показывается, если сервис недоступен: текст можно скопировать в бот вручную -->
+  <div class="errorbox" id="errorbox">
+    <h3>Не получилось отправить</h3>
+    <p>Сервис приёма заявок временно недоступен. Скопируй текст ниже и вставь его в чат с ботом <a href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">@SevastopolAiBot</a> — заявка всё равно дойдёт.</p>
     <textarea id="readybox" readonly></textarea>
-    <button type="button" class="copybtn" id="copybtn">📋 Скопировать текст ещё раз</button>
+    <button type="button" class="copybtn" id="copybtn">📋 Скопировать текст</button>
   </div>
 
   <div class="foot">
@@ -226,34 +270,67 @@
   </div>
 
   <p class="note">
-    Фото и геоточку удобнее прислать прямо в боте: кнопка «✍️ Предложить место»
-    в главном меню — бот примет текст, фото и геопозицию.
+    Заявка уходит напрямую владельцу бота. Фото и геоточку можно прислать позже
+    в ответном сообщении — если оставишь контакт, свяжусь сам.
   </p>
 
 </div>
 
 <script>
 (function(){
-  var BOT = "https://t.me/SevastopolAiBot";
-  var PREFIX = "✍️ ПРЕДЛОЖЕНИЕ: новое место";
+  // ⚠️ АДРЕС МИКРОСЕРВИСА (Cloudflare Worker).
+  // После деплоя вставь сюда адрес вида https://sevastopol-suggest.имя.workers.dev
+  // (см. worker/README.md в репозитории). Пока стоит заглушка — форма работает
+  // в резервном режиме: предлагает скопировать текст заявки в бота.
+  var WORKER_URL = "__WORKER_URL__";
+
   var form = document.getElementById("sform");
-  var after = document.getElementById("after");
+  var success = document.getElementById("success");
+  var errorbox = document.getElementById("errorbox");
+  var sendbtn = document.getElementById("sendbtn");
   var box = document.getElementById("readybox");
 
   function v(id){ return document.getElementById(id).value.trim(); }
 
-  function buildText(){
-    var lines = [PREFIX,
-      "📌 Название: " + v("f_name"),
-      "🏷 Категория: " + v("f_cat"),
-      "📍 Адрес/район: " + v("f_addr")
+  function buildPayload(){
+    return {
+      name: v("f_name"),
+      category: v("f_cat"),
+      address: v("f_addr"),
+      prices: v("f_price"),
+      phone: v("f_phone"),
+      links: v("f_links"),
+      description: v("f_desc"),
+      contact: v("f_contact"),
+      page: location.origin + location.pathname
+    };
+  }
+
+  function buildText(p){
+    var lines = ["✍️ ПРЕДЛОЖЕНИЕ: новое место",
+      "📌 Название: " + p.name,
+      "🏷 Категория: " + p.category,
+      "📍 Адрес/район: " + p.address
     ];
-    if (v("f_price"))  lines.push("💰 Цены: " + v("f_price"));
-    if (v("f_phone"))  lines.push("📞 Телефон: " + v("f_phone"));
-    if (v("f_links"))  lines.push("🔗 Ссылки: " + v("f_links").split("\n").filter(Boolean).join(" · "));
-    if (v("f_desc"))   lines.push("📝 Описание: " + v("f_desc"));
-    if (v("f_contact"))lines.push("👤 Связь: " + v("f_contact"));
+    if (p.prices)  lines.push("💰 Цены: " + p.prices);
+    if (p.phone)   lines.push("📞 Телефон: " + p.phone);
+    if (p.links)   lines.push("🔗 Ссылки: " + p.links.split("\n").filter(Boolean).join(" · "));
+    if (p.description) lines.push("📝 Описание: " + p.description);
+    if (p.contact) lines.push("👤 Связь: " + p.contact);
     return lines.join("\n");
+  }
+
+  function showSuccess(){
+    form.style.display = "none";
+    errorbox.style.display = "none";
+    success.style.display = "block";
+    success.scrollIntoView({ behavior:"smooth", block:"center" });
+  }
+
+  function showError(text){
+    box.value = text;
+    errorbox.style.display = "block";
+    errorbox.scrollIntoView({ behavior:"smooth", block:"center" });
   }
 
   function copy(t, cb){
@@ -271,20 +348,54 @@
 
   document.getElementById("copybtn").addEventListener("click", function(){
     copy(box.value, function(){
-      this.textContent = "✓ Скопировано";
-      var b = this;
-      setTimeout(function(){ b.textContent = "📋 Скопировать текст ещё раз"; }, 1500);
-    }.bind(this));
+      var b = document.getElementById("copybtn");
+      b.textContent = "✓ Скопировано";
+      setTimeout(function(){ b.textContent = "📋 Скопировать текст"; }, 1500);
+    });
   });
+
+  document.getElementById("againbtn").addEventListener("click", function(){
+    form.reset();
+    success.style.display = "none";
+    form.style.display = "block";
+    form.scrollIntoView({ behavior:"smooth", block:"start" });
+  });
+
+  var configured = WORKER_URL.indexOf("http") === 0;
 
   form.addEventListener("submit", function(e){
     e.preventDefault();
-    var t = buildText();
-    box.value = t;
-    after.style.display = "block";
-    after.scrollIntoView({ behavior:"smooth", block:"center" });
-    copy(t, function(){
-      window.open(BOT, "_blank");
+    errorbox.style.display = "none";
+
+    var payload = buildPayload();
+
+    // Сервис ещё не настроен — резервный режим: копировать текст в бота.
+    if (!configured){
+      showError(buildText(payload));
+      return;
+    }
+
+    sendbtn.disabled = true;
+    sendbtn.textContent = "Отправляю…";
+
+    fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){
+      return res.json().catch(function(){ return { ok: res.ok }; });
+    })
+    .then(function(data){
+      if (data && data.ok){ showSuccess(); }
+      else { showError(buildText(payload)); }
+    })
+    .catch(function(){
+      showError(buildText(payload));
+    })
+    .finally(function(){
+      sendbtn.disabled = false;
+      sendbtn.textContent = "Отправить";
     });
   });
 })();
