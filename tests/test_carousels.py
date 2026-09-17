@@ -141,10 +141,12 @@ def kb_texts(markup):
 # ── 1. Загружаем кэш из реального xlsx ───────────────────────────────────
 
 def load_cache():
+    """Кэш заполняем ровно так же, как это делает бот на старте (bot.valid_rows)."""
     xf = pd.ExcelFile(XLSX)
     for key in ("Где поесть", "Локации", "Маршруты", "События"):
         df = pd.read_excel(xf, sheet_name=key).fillna("")
-        bot.TABLE_CACHE[key] = df.to_dict(orient="records")
+        rows = bot.valid_rows(df.to_dict(orient="records"), require_date=(key == "События"))
+        bot.TABLE_CACHE[key] = rows
 
 
 print("== 1. База из xlsx ==")
@@ -153,10 +155,11 @@ food = bot.TABLE_CACHE["Где поесть"]
 locs = bot.TABLE_CACHE["Локации"]
 routes = bot.TABLE_CACHE["Маршруты"]
 events = bot.TABLE_CACHE["События"]
-check("Где поесть: 162 строки", len(food) == 162, f"было {len(food)}")
-check("Локации: 55 строк", len(locs) == 55, f"было {len(locs)}")
-check("Маршруты: 7 строк", len(routes) == 7, f"было {len(routes)}")
-check("События: 26 строк", len(events) == 26, f"было {len(events)}")
+check("Где поесть: 162 заведения", len(food) == 162, f"было {len(food)}")
+check("Локации: 53 локации", len(locs) == 53, f"было {len(locs)}")
+check("Маршруты: 7 маршрутов", len(routes) == 7, f"было {len(routes)}")
+check("События: 20 событий", len(events) == 20, f"было {len(events)}")
+check("в базе нет строк без названия", all(bot.pick(r, "Название") for r in food + locs + routes + events))
 
 # ── 2. Карусель еды: все 6 категорий ─────────────────────────────────────
 
@@ -410,6 +413,147 @@ async def test_passport_msg():
 
 
 asyncio.run(test_passport_msg())
+
+# ── 9. Лимиты Telegram по всей базе ─────────────────────────────────────
+
+print("== 9. Лимиты Telegram (текст 4096, подпись фото 1024, callback_data 64 байта) ==")
+
+
+def all_callback_data(markup):
+    for row in markup.inline_keyboard:
+        for b in row:
+            if b.callback_data:
+                yield b.callback_data
+
+
+bad_text, bad_caption, bad_cb = [], [], []
+for row in food:
+    text, markup, photo = bot.create_carousel_card([row], 0, "coffee")
+    if len(text) > 4096:
+        bad_text.append(bot.pick(row, "Название"))
+    if photo and len(text) > 1024:
+        bad_caption.append(bot.pick(row, "Название"))
+    for cb in all_callback_data(markup):
+        if len(cb.encode()) > 64:
+            bad_cb.append(cb)
+
+for row in locs:
+    text, markup, photo = bot.create_location_carousel([row], 0, "Пляжи")
+    if len(text) > 4096:
+        bad_text.append(bot.pick(row, "Название"))
+    if photo and len(text) > 1024:
+        bad_caption.append(bot.pick(row, "Название"))
+    for cb in all_callback_data(markup):
+        if len(cb.encode()) > 64:
+            bad_cb.append(cb)
+
+for row in routes:
+    text, markup, photo = bot.create_route_carousel([row], 0, "Пешие")
+    if len(text) > 4096:
+        bad_text.append(bot.pick(row, "Название"))
+    if photo and len(text) > 1024:
+        bad_caption.append(bot.pick(row, "Название"))
+    for cb in all_callback_data(markup):
+        if len(cb.encode()) > 64:
+            bad_cb.append(cb)
+
+check("текст карточек ≤ 4096 символов", not bad_text, str(bad_text[:3]))
+check("подпись к фото ≤ 1024 символа", not bad_caption, str(bad_caption[:3]))
+check("callback_data ≤ 64 байт", not bad_cb, str(bad_cb[:3]))
+
+# фото-ссылки на посты Telegram не должны уходить в answer_photo (иначе ошибка 400)
+tg_photos = [bot.pick(r, "Ссылка на фото") for r in locs if "t.me" in bot.pick(r, "Ссылка на фото").lower()]
+tg_used_as_photo = [
+    r for r in tg_photos
+    if bot.is_direct_image_url(bot.clean_url(r))
+]
+check(f"ссылки на посты t.me ({len(tg_photos)} шт.) не считаются фото", not tg_used_as_photo)
+
+# районы и подкатегории: кнопки влезают в 64 байта
+districts = sorted({str(p.get("Район", "")).strip() for p in food if str(p.get("Район", "")).strip()})
+too_long = [d for d in districts if len(f"subdist_delivery_{d}".encode()) > 64]
+check(f"районы ({len(districts)} шт.) влезают в callback_data", not too_long, str(too_long))
+
+# ── 10. Загрузка состояния из «битого» bot_state.json ───────────────────
+
+print("== 10. Устойчивость к битому состоянию ==")
+with open(bot.STATE_FILE, "w", encoding="utf-8") as f:
+    f.write(
+        '{"passports": {"1": {"xp": "abc"}, "2": {"xp": 50, "name": "Ок"}},'
+        ' "referrals": {"1": {"referrer": 2, "date": "2026-01-01", "bonus_given": false}},'
+        ' "analytics": [{"action": "START", "user_id": 2}, "мусор", null]}'
+    )
+bot.PASSPORTS.clear()
+bot.REFERRALS.clear()
+bot.ANALYTICS_ROWS.clear()
+bot.load_state()
+check("паспорт без xp → 0", bot.PASSPORTS[1]["xp"] == 0)
+check("паспорт с xp сохранился", bot.PASSPORTS[2]["xp"] == 50)
+check("недостающие поля дополнены",
+      bot.PASSPORTS[1]["name"] == "Гость" and bot.PASSPORTS[1]["passport_id"])
+check("мусор в аналитике отброшен", len(bot.ANALYTICS_ROWS) == 1)
+
+with open(bot.STATE_FILE, "w", encoding="utf-8") as f:
+    f.write("{ это не json")
+bot.PASSPORTS.clear()
+bot.load_state()
+check("битый json не роняет старт", bot.PASSPORTS == {})
+
+# сохранение — атомарное: файл валидный, временного не остаётся
+bot.PASSPORTS[999] = {"name": "Тест", "username": "t", "xp": 10, "passport_id": "CC-000999"}
+bot.save_state()
+import json as _json
+with open(bot.STATE_FILE, encoding="utf-8") as f:
+    saved = _json.load(f)
+check("save_state пишет валидный json", saved["passports"]["999"]["xp"] == 10)
+check("save_state не оставляет временный файл", not os.path.exists(bot.STATE_FILE + ".tmp"))
+bot.PASSPORTS.clear()
+bot.load_state()
+check("состояние переживает перезапуск", bot.PASSPORTS[999]["xp"] == 10)
+
+# ── 10.5 Шапка с латинской «B» (так сейчас в живой Google-таблице) ───────
+
+print("== 10.5 Латинская «B» в шапке таблицы ==")
+latin_row = {
+    "Категория": "Кофе",
+    "Название": "Тест с латинской шапкой",
+    "Адрес": "ул. Тестовая, 1",
+    "Район": "Центр",
+    "Координаты": "44.61, 33.52",
+    "Bремя работы": "ежедневно 8:00–21:00",     # ← латинская B, как в Google-таблице
+    "Bконтакте": "https://vk.ru/test",
+    "Сайт": "https://example.com",
+}
+t, mk, ph = bot.create_carousel_card([latin_row], 0, "coffee")
+labels = kb_texts(mk)[0]
+check("время работы читается из «Bремя работы»", "ежедневно 8:00–21:00" in t)
+check("ВК читается из «Bконтакте»", any("ВКонтакте" in x for x in labels))
+check("валидные строки с такой шапкой не отсеиваются",
+      len(bot.valid_rows([latin_row])) == 1)
+
+# ── 11. Совместимость с aiogram (kwargs, которые реально шлём) ───────────
+
+print("== 11. Совместимость с aiogram ==")
+import inspect
+
+from aiogram.types import Message
+
+AIAGRAM_CALLS = [
+    ("answer", {"text", "reply_markup", "parse_mode"}),
+    ("answer_photo", {"photo", "caption", "reply_markup", "parse_mode"}),
+    ("edit_text", {"text", "reply_markup", "parse_mode"}),
+    ("edit_media", {"media", "reply_markup"}),
+    ("copy_to", {"chat_id"}),
+    ("delete", set()),
+]
+for method, kwargs in AIAGRAM_CALLS:
+    params = set(inspect.signature(getattr(Message, method)).parameters)
+    missing = kwargs - params
+    check(
+        f"Message.{method}({', '.join(sorted(kwargs)) or '—'}) поддерживается",
+        not missing,
+        f"нет параметров: {sorted(missing)}",
+    )
 
 # ── Итог ─────────────────────────────────────────────────────────────────
 print(f"\nИТОГ: {PASS} прошло, {FAIL} упало")
