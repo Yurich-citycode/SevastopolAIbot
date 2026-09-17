@@ -19,6 +19,7 @@ import math
 import os
 import random
 import re
+import sys
 import urllib.parse
 from datetime import datetime, timedelta
 
@@ -1439,8 +1440,8 @@ NO_TOKEN_HELP = """
 async def main():
     load_state()
     if not TG_TOKEN or "ЗАМЕНИ" in TG_TOKEN:
-        print(NO_TOKEN_HELP)
-        return
+        print(NO_TOKEN_HELP, flush=True)
+        sys.exit(2)
     global bot
     bot = Bot(token=TG_TOKEN)
     logger.info("Первое обновление кэша таблиц...")
@@ -1456,9 +1457,16 @@ async def main():
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as e:
+        print("\n" + "!"*70, flush=True)
+        print("❌ БОТ НЕ ЗАПУСТИЛСЯ: Telegram API не принял подключение.", flush=True)
+        print(f"   Причина: {e}", flush=True)
+        print("   Чаще всего: токен отозван/неверен (401) — перевыпусти у @BotFather,", flush=True)
+        print("   либо нет доступа к api.telegram.org, либо бот уже запущен", flush=True)
+        print("   в другом месте с этим же токеном.", flush=True)
+        print("!"*70 + "\n", flush=True)
         logger.error("Не удалось подключиться к Telegram API: %s", e)
         await bot.session.close()
-        return
+        sys.exit(1)
     logger.info("🚀 Бот запущен")
     try:
         await dp.start_polling(bot)
