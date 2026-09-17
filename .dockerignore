@@ -1,0 +1,14 @@
+# В образ не должны попадать секреты и локальный мусор
+.env
+events/.env
+bot_state.json
+events/forwarder_state.json
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+notebooks/
+tests/
