@@ -1,11 +1,12 @@
 # Микросервис заявок (Cloudflare Worker)
 
 Принимает данные формы `suggest.html`, собирает аккуратное сообщение и
-шлёт его в личку владельцу (`chat_id 6106999216`) через Telegram Bot API.
+шлёт его в личку владельцу через Telegram Bot API.
 
 - Работает на бесплатном плане Cloudflare Workers (100 000 запросов/день —
   с огромным запасом).
-- Токен бота хранится **только в секрете Worker'а**, в коде и в git его нет.
+- В коде и в git секретов нет: `BOT_TOKEN` и `ADMIN_ID` задаются как
+  переменные/секреты Worker'а. Без них POST вернёт `server_not_configured`.
 
 ---
 
@@ -25,13 +26,14 @@
 5. Удалить в редакторе всё, что там есть, вставить **весь код** из файла
    [`index.js`](index.js) этой папки и нажать **Deploy** (справа вверху).
 
-### Шаг 4. Секрет с токеном бота
+### Шаг 4. Секреты: токен бота и кому слать заявки
 6. Вернуться: **Compute (Workers) → Workers & Pages → sevastopol-suggest →
    Settings → Variables and Secrets**.
-7. **Add** → тип **Secret**:
-   - Variable name: `BOT_TOKEN`
-   - Value: токен **основного** бота Sevastopol AI от @BotFather
-     (тот же, что в `.env` бота, строка `TG_TOKEN`).
+7. **Add** → тип **Secret**, две записи:
+   - `BOT_TOKEN` — токен **основного** бота Sevastopol AI от @BotFather
+     (тот же, что в `.env` бота, строка `TG_TOKEN`);
+   - `ADMIN_ID` — твой Telegram ID (узнать: написать @userinfobot),
+     тот же, что `ADMIN_ID` у бота.
 8. Нажать **Deploy** внизу.
 
 ### Шаг 5. Проверка
@@ -65,9 +67,15 @@
 ```bash
 cd worker
 npx wrangler login
-npx wrangler secret put BOT_TOKEN     # вставить токен основного бота
+npx wrangler secret put BOT_TOKEN     # токен основного бота от @BotFather
+npx wrangler secret put ADMIN_ID      # Telegram ID владельца (тот же, что у бота)
 npx wrangler deploy
 ```
+
+Секреты хранятся зашифрованными на стороне Cloudflare и не попадают ни в
+`wrangler.toml`, ни в git. Проверить список (значения не показываются):
+`npx wrangler secret list`. Ротация токена — повторный `wrangler secret put
+BOT_TOKEN` после `/revoke` у @BotFather (см. корневой `SECURITY.md`).
 
 ---
 

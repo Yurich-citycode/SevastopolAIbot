@@ -3,5 +3,6 @@ name = "sevastopol-suggest"
 main = "index.js"
 compatibility_date = "2025-01-01"
 
-# Секрет BOT_TOKEN задаётся командой (не в этом файле!):
+# Секреты задаются командами, а не в этом файле:
 #   npx wrangler secret put BOT_TOKEN
+#   npx wrangler secret put ADMIN_ID
