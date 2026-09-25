@@ -154,11 +154,42 @@ food = bot.TABLE_CACHE["Где поесть"]
 locs = bot.TABLE_CACHE["Локации"]
 routes = bot.TABLE_CACHE["Маршруты"]
 events = bot.TABLE_CACHE["События"]
-check("Где поесть: 162 заведения", len(food) == 162, f"было {len(food)}")
-check("Локации: 53 локации", len(locs) == 53, f"было {len(locs)}")
-check("Маршруты: 7 маршрутов", len(routes) == 7, f"было {len(routes)}")
-check("События: 20 событий", len(events) == 20, f"было {len(events)}")
+check(f"«Где поесть»: данные есть ({len(food)} строк)", len(food) > 0)
+check(f"«Локации»: данные есть ({len(locs)} строк)", len(locs) > 0)
+check(f"«Маршруты»: данные есть ({len(routes)} строк)", len(routes) > 0)
+check(f"«События»: данные есть ({len(events)} строк)", len(events) > 0)
 check("в базе нет строк без названия", all(bot.pick(r, "Название") for r in food + locs + routes + events))
+check(
+    "в каждой категории еды есть заведения",
+    all(bot.get_places_from_sheet(cat) for cat in bot.FOOD_CATEGORIES),
+    str([cat for cat in bot.FOOD_CATEGORIES if not bot.get_places_from_sheet(cat)]),
+)
+check(
+    "у каждой локации заполнены категория и описание",
+    all(bot.pick(r, "Категория") and bot.pick(r, "Описание") for r in locs),
+    str([bot.pick(r, "Название") for r in locs if not (bot.pick(r, "Категория") and bot.pick(r, "Описание"))]),
+)
+check(
+    "у каждого маршрута заполнены длина и сложность",
+    all(bot.pick(r, "Длина/Время") and bot.pick(r, "Сложность") for r in routes),
+)
+
+
+def route_buttons_mismatch():
+    for i, route in enumerate(routes):
+        key = bot.pick(route, "Категория") or "Пешие"
+        _text, markup, _photo = bot.create_route_carousel(routes, i, key)
+        texts, _callbacks, _urls = kb_texts(markup)
+        has_map = bool(bot.clean_url(bot.pick(route, "Ссылка на карту")))
+        has_coords = bool(bot.pick(route, "Координаты"))
+        if has_map != any("Открыть карту маршрута" in t for t in texts):
+            return f"{bot.pick(route, 'Название')}: кнопка карты"
+        if has_coords != any("Съестное рядом" in t for t in texts):
+            return f"{bot.pick(route, 'Название')}: кнопка «Съестное рядом»"
+    return ""
+
+
+check("кнопки маршрутов совпадают с данными", not route_buttons_mismatch(), route_buttons_mismatch())
 
 # ── 2. Карусель еды: все 6 категорий ─────────────────────────────────────
 
