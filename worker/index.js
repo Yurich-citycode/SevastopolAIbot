@@ -1,23 +1,12 @@
 /**
- * Sevastopol AI — микросервис приёма заявок с формы suggest.html.
+ * Sevastopol AI — приём заявок с формы suggest.html (Cloudflare Worker).
  *
- * Cloudflare Worker (бесплатный план). Принимает POST с данными формы,
- * собирает аккуратное сообщение и отправляет его владельцу бота в личку
- * через Telegram Bot API.
- *
- * СЕКРЕТЫ (Dashboard → Settings → Variables and Secrets):
- *   BOT_TOKEN — токен основного бота от @BotFather (тип: Secret)
- *
- * Адрес владельца зашит ниже в OWNER_CHAT_ID.
- *
- * Проверка после деплоя: открыть адрес Worker'а в браузере —
- * должна появиться страница «Сервис заявок работает».
+ * Секреты и настройки задаются в Dashboard → Settings → Variables and Secrets
+ * или командой wrangler secret put — в коде и в git их нет:
+ *   BOT_TOKEN — токен основного бота от @BotFather
+ *   ADMIN_ID  — Telegram ID владельца, куда приходят заявки
  */
 
-// Кому приходят заявки (владелец бота)
-const OWNER_CHAT_ID = "6106999216";
-
-// Лимиты длины полей (защита от мусора)
 const LIMITS = {
   name: 120,
   category: 60,
@@ -29,7 +18,6 @@ const LIMITS = {
   contact: 80,
 };
 
-// Форма живёт на GitHub Pages — разрешаем ей обращаться (CORS)
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -37,8 +25,6 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400",
 };
 
-// Простейший анти-спам: не больше 5 заявок в час с одного IP
-// (работает в рамках одного инстанса Worker'а — для защиты от ботов этого хватает)
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const hits = new Map();
@@ -108,12 +94,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    // GET — страница-проверка, что сервис жив
     if (request.method === "GET") {
       return new Response(STATUS_HTML, {
         headers: { "Content-Type": "text/html; charset=utf-8", ...CORS_HEADERS },
@@ -124,12 +108,11 @@ export default {
       return json({ ok: false, error: "method_not_allowed" }, 405);
     }
 
-    // Секрет не настроен — сообщаем внятно
-    if (!env.BOT_TOKEN) {
+    const adminId = String(env.ADMIN_ID || "").trim();
+    if (!env.BOT_TOKEN || !adminId) {
       return json({ ok: false, error: "server_not_configured" }, 500);
     }
 
-    // Анти-спам
     const ip =
       request.headers.get("cf-connecting-ip") ||
       request.headers.get("x-forwarded-for") ||
@@ -138,7 +121,6 @@ export default {
       return json({ ok: false, error: "too_many_requests" }, 429);
     }
 
-    // Читаем JSON формы
     let data;
     try {
       data = await request.json();
@@ -160,19 +142,17 @@ export default {
       contact: clean(data.contact, LIMITS.contact),
     };
 
-    // Обязательные поля — как на форме
     if (!f.name || !f.address) {
       return json({ ok: false, error: "name_and_address_required" }, 400);
     }
 
-    // Собираем сообщение и отправляем владельцу в личку
     const resp = await fetch(
       "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: OWNER_CHAT_ID,
+          chat_id: adminId,
           text: buildMessage(f),
           parse_mode: "HTML",
           disable_web_page_preview: true,

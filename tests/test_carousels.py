@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Функциональные тесты каруселей и новых фич на реальных данных
-из "Sevastopol AI База.xlsx" (без сети: кэш заполняем из файла,
-aiogram-объекты — мок-обёртки).
+"""Тесты бота на реальных данных из "Sevastopol AI База.xlsx" — без сети и без Telegram.
 
 Запуск:  .venv/bin/python tests/test_carousels.py
 """
@@ -18,10 +15,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-# --- импортируем бота (без запуска: токен не нужен) ---
+TEST_ADMIN_ID = "100500"
+TEST_TOKEN = "123456789:TESTONLY-not-a-real-token"
+os.environ["ADMIN_ID"] = TEST_ADMIN_ID
+os.environ["TG_TOKEN"] = TEST_TOKEN
+
 import sevastopolaibot as bot  # noqa: E402
 
-# --- изоляция состояния: не трогаем реальный bot_state.json ---
 _tmp_state = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
 bot.STATE_FILE = _tmp_state.name
 bot.PASSPORTS.clear()
@@ -141,7 +141,6 @@ def kb_texts(markup):
 # ── 1. Загружаем кэш из реального xlsx ───────────────────────────────────
 
 def load_cache():
-    """Кэш заполняем ровно так же, как это делает бот на старте (bot.valid_rows)."""
     xf = pd.ExcelFile(XLSX)
     for key in ("Где поесть", "Локации", "Маршруты", "События"):
         df = pd.read_excel(xf, sheet_name=key).fillna("")
@@ -322,7 +321,6 @@ async def test_callbacks():
               and st.data.get("nearfood_type") == "loc")
         check("nearfood: на карточке еды есть 🔙 Назад",
               any(c == "nearfood_back" for c in kb_texts(call2.message.last_markup())[1]))
-        # возврат
         call3 = FakeCall("nearfood_back")
         await bot._route_callback(call3, st)
         back_text = call3.message.last_text()
@@ -359,8 +357,6 @@ async def test_callbacks():
     check("меню: «✍️ Предложить место» — URL-кнопка на форму",
           "✍️ Предложить место" in t and bot.SUGGEST_FORM_URL in u)
 
-    # 7.7 «Предложить место»: теперь URL-кнопка (форма на GitHub Pages);
-    # старый колбэк от прежних клавиатур мягко ведёт в форму, диалога больше нет
     st5 = FakeState()
     call7 = FakeCall("suggest_place")
     await bot._route_callback(call7, st5)
@@ -370,8 +366,6 @@ async def test_callbacks():
     check("suggest_place: инлайн-кнопка «Открыть форму»",
           bot.SUGGEST_FORM_URL in u7)
 
-    # текст со стрелкой старой формы (вставленный в чат) по-прежнему доходит
-    # владельцу через fallback_message
     msg = FakeMessage(text=bot.SUGGEST_WEB_PREFIX + " новое место\nТотальный, ул. Нахимова 2")
     msg.from_user = FakeUser(id=777, username="suga", full_name="Сюга")
     await bot.fallback_message(msg, st5)
@@ -461,7 +455,6 @@ check("текст карточек ≤ 4096 символов", not bad_text, str
 check("подпись к фото ≤ 1024 символа", not bad_caption, str(bad_caption[:3]))
 check("callback_data ≤ 64 байт", not bad_cb, str(bad_cb[:3]))
 
-# фото-ссылки на посты Telegram не должны уходить в answer_photo (иначе ошибка 400)
 tg_photos = [bot.pick(r, "Ссылка на фото") for r in locs if "t.me" in bot.pick(r, "Ссылка на фото").lower()]
 tg_used_as_photo = [
     r for r in tg_photos
@@ -469,7 +462,6 @@ tg_used_as_photo = [
 ]
 check(f"ссылки на посты t.me ({len(tg_photos)} шт.) не считаются фото", not tg_used_as_photo)
 
-# районы и подкатегории: кнопки влезают в 64 байта
 districts = sorted({str(p.get("Район", "")).strip() for p in food if str(p.get("Район", "")).strip()})
 too_long = [d for d in districts if len(f"subdist_delivery_{d}".encode()) > 64]
 check(f"районы ({len(districts)} шт.) влезают в callback_data", not too_long, str(too_long))
@@ -499,7 +491,6 @@ bot.PASSPORTS.clear()
 bot.load_state()
 check("битый json не роняет старт", bot.PASSPORTS == {})
 
-# сохранение — атомарное: файл валидный, временного не остаётся
 bot.PASSPORTS[999] = {"name": "Тест", "username": "t", "xp": 10, "passport_id": "CC-000999"}
 bot.save_state()
 import json as _json
@@ -520,7 +511,7 @@ latin_row = {
     "Адрес": "ул. Тестовая, 1",
     "Район": "Центр",
     "Координаты": "44.61, 33.52",
-    "Bремя работы": "ежедневно 8:00–21:00",     # ← латинская B, как в Google-таблице
+    "Bремя работы": "ежедневно 8:00–21:00",
     "Bконтакте": "https://vk.ru/test",
     "Сайт": "https://example.com",
 }
@@ -554,6 +545,51 @@ for method, kwargs in AIAGRAM_CALLS:
         not missing,
         f"нет параметров: {sorted(missing)}",
     )
+
+# ── 12. Конфигурация из ENV (python-dotenv, без хардкода секретов) ────────
+
+print("== 12. Конфигурация из ENV ==")
+import re as _re
+import tempfile as _tempfile
+
+check("TG_TOKEN берётся из ENV", bot.TG_TOKEN == TEST_TOKEN, f"было {bot.TG_TOKEN!r}")
+check("ADMIN_ID взят из ENV", bot.ADMIN_ID == int(TEST_ADMIN_ID), f"было {bot.ADMIN_ID!r}")
+check("ADMIN_ID из ENV: is_admin распознаёт владельца",
+      bot.is_admin(int(TEST_ADMIN_ID)) and not bot.is_admin(int(TEST_ADMIN_ID) + 1))
+check("REFRESH_SECONDS — целое из ENV/дефолта",
+      isinstance(bot.REFRESH_SECONDS, int) and bot.REFRESH_SECONDS > 0)
+check("STATE_FILE — строка", isinstance(bot.STATE_FILE, str) and bot.STATE_FILE)
+
+os.environ["__AUDIT_BAD_INT__"] = "не число"
+check("env_int: мусор → дефолт, без падения", bot.env_int("__AUDIT_BAD_INT__", 42) == 42)
+os.environ["__AUDIT_EMPTY__"] = "   "
+check("env_str: пустое значение → дефолт", bot.env_str("__AUDIT_EMPTY__", "fallback") == "fallback")
+del os.environ["__AUDIT_BAD_INT__"], os.environ["__AUDIT_EMPTY__"]
+
+with _tempfile.NamedTemporaryFile("w", suffix=".env", delete=False, encoding="utf-8") as _f:
+    _f.write("__AUDIT_FROM_FILE__=1\n__AUDIT_OVERRIDE__=from_file\n")
+    _env_file = _f.name
+os.environ["ENV_FILE"] = _env_file
+os.environ["__AUDIT_OVERRIDE__"] = "from_env"
+bot.load_env()
+check("load_env читает файл из ENV_FILE", os.environ.get("__AUDIT_FROM_FILE__") == "1")
+check("реальное окружение приоритетнее .env", os.environ["__AUDIT_OVERRIDE__"] == "from_env")
+del os.environ["ENV_FILE"], os.environ["__AUDIT_FROM_FILE__"], os.environ["__AUDIT_OVERRIDE__"]
+os.unlink(_env_file)
+
+with open(os.path.join(ROOT, "sevastopolaibot.py"), encoding="utf-8") as f:
+    _source = f.read()
+check("в sevastopolaibot.py нет токена вида 123456789:AAA…",
+      not _re.search(r"\d{8,10}:AA[0-9A-Za-z_-]{30}", _source))
+check("в sevastopolaibot.py нет личного ADMIN_ID по умолчанию",
+      "6106999216" not in _source)
+check("python-dotenv подключён", "from dotenv import load_dotenv" in _source)
+
+if os.name == "posix":
+    os.chmod(bot.STATE_FILE, 0o644)
+    bot.save_state()
+    _mode = os.stat(bot.STATE_FILE).st_mode & 0o777
+    check("bot_state.json сохраняется с правами 600", _mode == 0o600, f"было {oct(_mode)}")
 
 # ── Итог ─────────────────────────────────────────────────────────────────
 print(f"\nИТОГ: {PASS} прошло, {FAIL} упало")

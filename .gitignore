@@ -1,14 +1,16 @@
 # Секреты и локальные файлы — никогда не коммитим
 .env
-events/.env
+.env.*
+!.env.example
 bot_state.json
-events/forwarder_state.json
+*.json.tmp
 
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/
 
 # Notebooks
 .ipynb_checkpoints/

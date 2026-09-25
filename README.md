@@ -6,6 +6,9 @@
 
 Бот в Telegram: [@SevastopolAiBot](https://t.me/SevastopolAiBot)
 
+- 📄 [AUDIT_REPORT.md](AUDIT_REPORT.md) — разбор структуры, запуск локально / Docker / Colab / VPS, перенос
+- 🔐 [SECURITY.md](SECURITY.md) — где хранить токены, права 600, ротация, Vault / Doppler / Cloudflare
+
 ## Структура репозитория
 
 | Файл | Что это |
@@ -14,16 +17,25 @@
 | `Sevastopol AI База.xlsx` | База: Где поесть / Локации / События / Маршруты + служебные листы |
 | `Sevastopol AI База.zip` | Та же база + html-экспорты листов |
 | `requirements.txt` | Зависимости бота |
-| `.env.example` | Шаблон настроек (скопировать в `.env`) |
-| `Dockerfile` | Запуск в контейнере |
-| `tests/` | `test_carousels.py` (бот) и `test_forwarder.py` (парсер каналов) |
+| `.env.example` | Шаблон настроек (скопировать в `.env`, `chmod 600`) |
+| `Dockerfile`, `.dockerignore` | Запуск в контейнере |
+| `SECURITY.md` | Хранение и ротация секретов |
+| `AUDIT_REPORT.md` | Аудит репозитория и инструкция по переносу |
+| `tests/test_carousels.py` | Тесты бота: карусели, колбэки, XP, лимиты Telegram, состояние, ENV |
 | `tools/check_base.py` | Проверка базы: дубликаты, координаты, лимиты Telegram, даты |
 | `tools/add_*.py`, `tools/fill_coords.py` | Скрипты пакетного наполнения базы (openpyxl) |
 | `tools/rebuild_zip.py` | Пересборка `Sevastopol AI База.zip` по актуальному xlsx |
-| `notebooks/` | Готовые Colab-ноутбуки — бот и парсер, каждый в **одной ячейке** |
+| `notebooks/SevastopolAI_bot.ipynb` | Colab-ноутбук — запуск бота одной ячейкой |
 | `suggest.html` | Веб-форма «✍️ Предложить место» (GitHub Pages) |
+| `.nojekyll` | Отключает Jekyll на GitHub Pages — страница отдаётся как есть |
 | `worker/` | Cloudflare Worker — приём заявок с формы (инструкция внутри) |
-| `events/` | Парсер каналов на личном аккаунте (Telethon) — отдельный сервис |
+
+Парсер каналов (`events/`, `notebooks/SevastopolAI_parser.ipynb`,
+`tests/test_forwarder.py`) из репозитория удалён: он работал от личного
+аккаунта, к боту отношения не имел и требовал собственного набора секретов.
+Лист «События» теперь наполняется вручную — `tools/add_events.py` или правка
+Google-таблицы. Кнопка «📰 Новости города» осталась: она ведёт на канал
+`NEWS_CHANNEL_URL`.
 
 ## Быстрый старт (локально)
 
@@ -36,22 +48,44 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env               # Windows: copy .env.example .env
-#   впиши в .env свой TG_TOKEN от @BotFather
+chmod 600 .env                     # вписать TG_TOKEN и ADMIN_ID (ID: @userinfobot)
 
 python sevastopolaibot.py
 ```
 
+Нужны два значения: `TG_TOKEN` (@BotFather → /mybots → API Token) и `ADMIN_ID`
+(твой Telegram ID — для `/admin` и пересылки заявок с формы). Остальное
+работает на значениях по умолчанию. Файл `.env` не обязателен: те же
+переменные можно задать окружением (Docker `-e`, systemd `EnvironmentFile`,
+GitHub Secrets, Railway/Render, Vault, Doppler) — `os.getenv()` их подхватит,
+а реальное окружение всегда приоритетнее `.env`.
+
 ## Запуск в Google Colab (одна ячейка)
 
 Colab — самый быстрый способ проверить бота без сервера.
-Открой `notebooks/SevastopolAI_bot.ipynb` (или скопируй ячейку ниже),
-впиши токен и нажми ▶️.
+Открой `notebooks/SevastopolAI_bot.ipynb` (или скопируй ячейку ниже)
+и нажми ▶️ — токен ячейка **спросит** (`getpass`, ввод не сохраняется в файле)
+или возьмёт из Colab → 🔑 Secrets (`TG_TOKEN`, `ADMIN_ID`).
 
 ```python
 # ═══════════ Sevastopol AI — запуск бота одной ячейкой ═══════════
-TG_TOKEN = "ВСТАВЬ_ТОКЕН_ОТ_BOTFATHER"      # ← сюда токен, остальное ячейка сделает сама
+ADMIN_ID = ""     # твой Telegram ID (узнать: @userinfobot) — для /admin и заявок с формы
 
-import os, pathlib, shutil, subprocess, sys
+import os, shutil, subprocess, sys
+
+def colab_secret(name):
+    try:
+        from google.colab import userdata
+        return str(userdata.get(name) or "").strip()
+    except Exception:
+        return ""
+
+TG_TOKEN = colab_secret("TG_TOKEN")
+if not TG_TOKEN:
+    import getpass
+    TG_TOKEN = getpass.getpass("TG_TOKEN от @BotFather: ").strip()
+if not ADMIN_ID:
+    ADMIN_ID = colab_secret("ADMIN_ID")
 
 REPO = "https://github.com/Yurich-citycode/SevastopolAIbot.git"
 DIR = "/content/SevastopolAIbot"
@@ -62,37 +96,33 @@ def sh(*cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd, check=True)
 
 
-# 1) свежий код
 if os.path.isdir(DIR):
     if subprocess.run(["git", "-C", DIR, "pull", "--ff-only", "origin", "main"]).returncode:
-        shutil.rmtree(DIR)                      # локальные правки мешают — клонируем заново
+        shutil.rmtree(DIR)
 if not os.path.isdir(DIR):
     sh("git", "clone", "--depth", "1", REPO, DIR)
 
-# 2) зависимости
 sh(sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt", cwd=DIR)
 
-# 3) настройки (файл .env в git не попадает)
-env = pathlib.Path(DIR) / ".env"
-env.write_text("\n".join([
-    f"TG_TOKEN={TG_TOKEN}",
-    "SPREADSHEET_ID=1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI",
-    "ADMIN_ID=6106999216",
-    "NEWS_CHANNEL_URL=https://t.me/Sevastopol_AI",
-    "REFRESH_SECONDS=600",
-    "STATE_FILE=bot_state.json",
-]) + "\n", encoding="utf-8")
-env.chmod(0o600)
+# настройки передаём процессу окружением — файл .env на диске не создаём
+settings = dict(os.environ)
+settings.update({
+    "TG_TOKEN": TG_TOKEN,
+    "ADMIN_ID": ADMIN_ID,
+    "SPREADSHEET_ID": "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI",
+    "NEWS_CHANNEL_URL": "https://t.me/Sevastopol_AI",
+    "REFRESH_SECONDS": "600",
+    "STATE_FILE": "bot_state.json",
+})
 
-# 4) запуск — процесс живёт, пока не нажмёшь ■
-subprocess.run([sys.executable, "-u", "sevastopolaibot.py"], cwd=DIR)
+subprocess.run([sys.executable, "-u", "sevastopolaibot.py"], cwd=DIR, env=settings)
 ```
 
 Остановка — ■ (прервать ячейку). Colab засыпает без активности, поэтому
 для работы 24/7 нужен сервер (ниже).
 
-⚠️ Токен в ячейке виден всем, у кого есть доступ к ноутбуку. Не публикуй
-ноутбук с вписанным токеном; засветился — перевыпусти у @BotFather.
+⚠️ Никогда не вписывай токен строкой в ячейку: он уедет в git вместе с
+ноутбуком. Засветился — @BotFather → /mybots → API Token → **Revoke**.
 
 ## Запуск 24/7
 
@@ -100,16 +130,22 @@ subprocess.run([sys.executable, "-u", "sevastopolaibot.py"], cwd=DIR)
 
 ```bash
 docker build -t sevastopol-ai-bot .
+
+sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
+sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=… STATE_FILE=/data/bot_state.json
+
 docker run -d --name sevastopol-ai-bot --restart unless-stopped \
-  -e TG_TOKEN=123456789:AAABBBCCC \
-  -e ADMIN_ID=6106999216 \
-  -e STATE_FILE=/data/bot_state.json \
+  --env-file /etc/sevastopol-ai-bot.env \
   -v sevastopol-state:/data \
   sevastopol-ai-bot
+
+docker logs -f sevastopol-ai-bot
 ```
 
 Том `sevastopol-state` сохраняет XP-паспорта и статистику между перезапусками:
-без него `bot_state.json` живёт внутри контейнера и теряется при его пересоздании.
+без него `bot_state.json` живёт внутри контейнера и теряется при его
+пересоздании. Варианты с `-e TG_TOKEN=…` и с секретами Docker — в
+[SECURITY.md](SECURITY.md).
 
 ### systemd (VPS без Docker)
 
@@ -117,7 +153,9 @@ docker run -d --name sevastopol-ai-bot --restart unless-stopped \
 git clone https://github.com/Yurich-citycode/SevastopolAIbot.git /opt/sevastopol-ai-bot
 cd /opt/sevastopol-ai-bot
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-printf 'TG_TOKEN=123456789:AAABBBCCC\n' > .env && chmod 600 .env
+
+sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
+sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=…
 ```
 
 `/etc/systemd/system/sevastopol-ai-bot.service`:
@@ -130,24 +168,38 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=/opt/sevastopol-ai-bot
+EnvironmentFile=/etc/sevastopol-ai-bot.env
 ExecStart=/opt/sevastopol-ai-bot/.venv/bin/python -u sevastopolaibot.py
 Restart=always
 RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 ```bash
-systemctl daemon-reload
-systemctl enable --now sevastopol-ai-bot
+sudo systemctl daemon-reload
+sudo systemctl enable --now sevastopol-ai-bot
 journalctl -u sevastopol-ai-bot -f      # логи
 ```
+
+Секреты лежат в `EnvironmentFile` вне репозитория с правами 600 — в коде и в
+git их нет. Ротация токена: правка файла → `systemctl restart`.
 
 ### PythonAnywhere / Railway / Render / Fly.io
 
 Бесплатные тарифы умеют деплоить репозиторий с GitHub: укажи команду запуска
-`python sevastopolaibot.py` и добавь переменную окружения `TG_TOKEN` — всё.
+`python sevastopolaibot.py` и добавь переменные окружения `TG_TOKEN` и
+`ADMIN_ID` в панели платформы.
+
+- **Railway**: Variables → New Variable; для состояния — Volume и
+  `STATE_FILE=/data/bot_state.json`.
+- **Render**: Settings → Environment; диск для `STATE_FILE`.
+- **Fly.io**: `fly secrets set TG_TOKEN=… ADMIN_ID=…` + `fly volumes create state`.
 
 > Важно: бот должен запускаться как обычный процесс (`python sevastopolaibot.py`),
 > а не импортом `main()` в REPL.
@@ -156,13 +208,18 @@ journalctl -u sevastopol-ai-bot -f      # логи
 
 | Переменная | По умолчанию | Назначение |
 |---|---|---|
-| `TG_TOKEN` | — (обязательно) | Токен бота от @BotFather |
+| `TG_TOKEN` | — (обязательно) | Токен бота от @BotFather. Синоним: `BOT_TOKEN` |
+| `ADMIN_ID` | — (обязательно для админ-функций) | Кому доступна `/admin`, куда пересылают предложения |
 | `SPREADSHEET_ID` | ID текущей базы | Google-таблица с данными |
-| `ADMIN_ID` | 6106999216 | Кому доступна `/admin`, куда пересылают предложения |
 | `NEWS_CHANNEL_URL` | `https://t.me/Sevastopol_AI` | Канал в кнопке «📰 Новости города» |
 | `SUGGEST_FORM_URL` | страница `suggest.html` | Веб-форма «✍️ Предложить место» |
 | `REFRESH_SECONDS` | 600 | Как часто перечитывать таблицу |
 | `STATE_FILE` | `bot_state.json` | XP-паспорта, рефералы и статистика |
+| `ENV_FILE` | — | Необязательно: путь к своему файлу настроек вместо `.env` |
+
+Без `TG_TOKEN` бот печатает подсказку и выходит с кодом 2. Без `ADMIN_ID`
+бот работает, но пишет в лог предупреждение: `/admin` и пересылка заявок
+с формы отключены. Значения читаются один раз на старте.
 
 ## База данных
 
@@ -196,7 +253,8 @@ journalctl -u sevastopol-ai-bot -f      # логи
 - **Координаты** — строкой `44.616658, 33.523904` (широта, долгота через запятую).
 - **Ссылка на фото** — прямой адрес картинки (`.jpg/.png/...`). Ссылка на пост
   Telegram (`t.me/...`) картинкой не покажется: бот отдаст карточку текстом.
-- **Дата** события — `ДД.ММ.ГГГГ`. События в прошлом бот не показывает.
+- **Дата** события — `ДД.ММ.ГГГГ`. События в прошлом бот не показывает, поэтому
+  лист «События» нужно регулярно обновлять вручную (`tools/add_events.py`).
 - Строка без **Названия** ботом игнорируется — пустые строки в конце листа
   можно не удалять, на работу они не влияют.
 - Колонки бот ищет по шапке, поэтому порядок колонок можно менять; шапки
@@ -214,17 +272,38 @@ python tools/check_base.py     # дубликаты, координаты, сс�
 
 ```bash
 python tools/add_cafe.py       # пример: дописывает кафе в конец листа
+python tools/rebuild_zip.py    # пересобрать «Sevastopol AI База.zip» по xlsx
 ```
 
 ## Проверка кода
 
 ```bash
-python tests/test_carousels.py    # бот: карусели, колбэки, XP, лимиты Telegram, состояние
-python tests/test_forwarder.py    # парсер: ссылки, альбомы, стейт, копирование постов
+python tests/test_carousels.py    # бот: карусели, колбэки, XP, лимиты Telegram, состояние, ENV
 ```
 
 Тесты работают без сети и без Telegram: кэш заполняется из xlsx, объекты
-aiogram/Telethon — заглушки.
+aiogram — заглушки. Ожидаемый результат: `ИТОГ: 111 прошло, 0 упало`.
+
+## Форма предложений и GitHub Pages
+
+`suggest.html` публикуется на GitHub Pages (Settings → Pages → Branch: `main`,
+folder `/`). Файл `.nojekyll` отключает сборку Jekyll — страница отдаётся
+как есть, без риска, что Jekyll что-то пересоберёт или пропустит.
+
+Заявка с формы уходит в Cloudflare Worker (`worker/`), а он — в личку
+`ADMIN_ID` через Bot API. Токен хранится в секрете Worker'а:
+
+```bash
+cd worker
+npx wrangler secret put BOT_TOKEN
+npx wrangler secret put ADMIN_ID
+npx wrangler deploy
+```
+
+Если адрес Worker'а ещё не прописан в `suggest.html` (`WORKER_URL`), форма
+переключается в резервный режим: предлагает скопировать текст заявки и
+вставить в бота — бот распознаёт префикс `✍️ ПРЕДЛОЖЕНИЕ:` и пересылает
+владельцу, начисляя +5 XP.
 
 ## Что умеет бот
 
@@ -239,12 +318,16 @@ aiogram/Telethon — заглушки.
 - ✍️ «Предложить место» — веб-форма, заявка уходит владельцу (`ADMIN_ID`).
 - 🛂 City Passport: XP за первый запуск, за активность (не чаще раза в день
   на действие) и за рефералов; уровни и ранги.
+- 📊 `/admin` — статистика: пользователи, паспорта, действия, свежесть кэша.
 
 ## Безопасность ⚠️
 
-Токен не хранится в коде — только в `.env` (в git не попадает) или в переменной
-окружения. Засветился в git-истории — перевыпусти: @BotFather → /mybots →
-API Token → Revoke.
+Секретов в репозитории нет: `TG_TOKEN` берётся только из окружения, `ADMIN_ID`
+— тоже (значения по умолчанию в коде нет). `.env` и `bot_state.json` в
+`.gitignore`, `.env` рекомендуется держать с правами 600, `bot_state.json`
+бот сохраняет атомарно (`.tmp` + `os.replace`) и выставляет 600 сам.
 
-Строка сессии парсера (`TELETHON_SESSION`) — это полный доступ к личному
-аккаунту: держи её в `events/.env` и никому не показывай.
+Подробности — где хранить, как не засветить в git, как ротировать через
+@BotFather `/revoke`, Docker volume для `STATE_FILE`, systemd `EnvironmentFile`,
+`wrangler secret put`, Vault / Doppler / SOPS / GitHub Secrets — в
+**[SECURITY.md](SECURITY.md)**.

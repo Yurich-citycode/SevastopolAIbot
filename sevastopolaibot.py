@@ -1,14 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Sevastopol AI Bot — телеграм-гид по Севастополю.
-Данные из Google Sheets, кэш в памяти, обновление в фоне.
-
-Запуск:
-    pip install -r requirements.txt
-    python sevastopolaibot.py
-
-Переменные окружения — см. .env.example
-"""
+"""Sevastopol AI Bot — телеграм-гид по Севастополю. Данные из Google Sheets, кэш в памяти."""
 
 import asyncio
 import html
@@ -22,6 +13,7 @@ import re
 import sys
 import urllib.parse
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -37,40 +29,56 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from dotenv import load_dotenv
 
 # ────────────────────── конфигурация ──────────────────────
 
-def _load_env(path: str = ".env") -> None:
-    if not os.path.exists(path):
-        return
-    try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    except Exception as e:
-        logging.warning("Не удалось прочитать %s: %s", path, e)
-
-_load_env()
-
-TG_TOKEN = os.getenv("TG_TOKEN", "").strip()
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI").strip()
-ADMIN_ID = int(os.getenv("ADMIN_ID", "6106999216"))
-NEWS_CHANNEL_URL = os.getenv("NEWS_CHANNEL_URL", "https://t.me/Sevastopol_AI").strip()
-if not NEWS_CHANNEL_URL.startswith(("http://", "https://")):
-    NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
-SUGGEST_FORM_URL = os.getenv(
-    "SUGGEST_FORM_URL",
-    "https://yurich-citycode.github.io/SevastopolAIbot/suggest.html",
-).strip()
-REFRESH_SECONDS = int(os.getenv("REFRESH_SECONDS", "600"))
-STATE_FILE = os.getenv("STATE_FILE", "bot_state.json")
+BASE_DIR = Path(__file__).resolve().parent
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+DEFAULT_SPREADSHEET_ID = "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI"
+DEFAULT_NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
+DEFAULT_SUGGEST_FORM_URL = "https://yurich-citycode.github.io/SevastopolAIbot/suggest.html"
+
+
+def load_env() -> None:
+    for candidate in (os.getenv("ENV_FILE"), BASE_DIR / ".env", Path.cwd() / ".env"):
+        if candidate:
+            load_dotenv(candidate)
+
+
+def env_str(name: str, default: str = "") -> str:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    value = value.strip()
+    return value or default
+
+
+def env_int(name: str, default: int | None = None) -> int | None:
+    raw = env_str(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("%s=%r не число — беру %s", name, raw, default)
+        return default
+
+
+load_env()
+
+TG_TOKEN = env_str("TG_TOKEN") or env_str("BOT_TOKEN")
+SPREADSHEET_ID = env_str("SPREADSHEET_ID", DEFAULT_SPREADSHEET_ID)
+ADMIN_ID = env_int("ADMIN_ID")
+NEWS_CHANNEL_URL = env_str("NEWS_CHANNEL_URL", DEFAULT_NEWS_CHANNEL_URL)
+if not NEWS_CHANNEL_URL.startswith(("http://", "https://")):
+    NEWS_CHANNEL_URL = DEFAULT_NEWS_CHANNEL_URL
+SUGGEST_FORM_URL = env_str("SUGGEST_FORM_URL", DEFAULT_SUGGEST_FORM_URL)
+REFRESH_SECONDS = env_int("REFRESH_SECONDS", 600)
+STATE_FILE = env_str("STATE_FILE", "bot_state.json")
 
 # ────────────────────── кэш ──────────────────────
 
@@ -89,6 +97,7 @@ CAT_MAP = {
     "delivery": "Доставки",
 }
 
+
 def pick(row: dict, *keys, default: str = "") -> str:
     for k in keys:
         if k not in row:
@@ -101,13 +110,8 @@ def pick(row: dict, *keys, default: str = "") -> str:
             return s
     return default
 
-def valid_rows(rows: list, require_date: bool = False) -> list[dict]:
-    """Отбрасывает мусорные строки таблицы: пустые и без названия.
 
-    Google-таблица легко разрастается пустыми строками (форматирование,
-    «на всякий случай»), и тогда бот показывает карточку «Без названия».
-    Здесь чистим кэш один раз на загрузке — дальше код работает с чистыми данными.
-    """
+def valid_rows(rows: list, require_date: bool = False) -> list[dict]:
     out: list[dict] = []
     for r in rows or []:
         if not isinstance(r, dict):
@@ -119,6 +123,7 @@ def valid_rows(rows: list, require_date: bool = False) -> list[dict]:
         out.append(r)
     return out
 
+
 def _download_xlsx(url: str) -> bytes:
     resp = requests.get(url, timeout=60, headers={"User-Agent": "SevastopolAIbot/1.0"})
     resp.raise_for_status()
@@ -129,6 +134,7 @@ def _download_xlsx(url: str) -> bytes:
         )
     return content
 
+
 async def refresh_cache_once():
     global LAST_CACHE_UPDATE
     loop = asyncio.get_running_loop()
@@ -136,28 +142,31 @@ async def refresh_cache_once():
     logger.info("🔄 Кэш: обновление из Google Sheets")
     content = await loop.run_in_executor(None, _download_xlsx, url)
     excel_file = await loop.run_in_executor(None, pd.ExcelFile, io.BytesIO(content))
-    sheet_names = [n.strip() for n in excel_file.sheet_names]
-    cleaned = {n: n for n in sheet_names}
+    try:
+        sheets = {name.strip(): name for name in excel_file.sheet_names}
 
-    async with CACHE_LOCK:
-        food_name = next((n for n in ("Где поесть?", "Где поесть") if n in cleaned), sheet_names[0] if sheet_names else None)
-        if food_name:
-            df = await loop.run_in_executor(None, lambda s=food_name: pd.read_excel(excel_file, sheet_name=s).fillna(""))
-            rows = valid_rows(df.to_dict(orient="records"))
-            TABLE_CACHE["Где поесть"] = rows
-            logger.info("Кэш '%s': %d строк", food_name, len(rows))
+        async with CACHE_LOCK:
+            food_key = next((n for n in ("Где поесть?", "Где поесть") if n in sheets), next(iter(sheets), None))
+            if food_key:
+                df = await loop.run_in_executor(None, lambda s=sheets[food_key]: pd.read_excel(excel_file, sheet_name=s).fillna(""))
+                rows = valid_rows(df.to_dict(orient="records"))
+                TABLE_CACHE["Где поесть"] = rows
+                logger.info("Кэш '%s': %d строк", food_key, len(rows))
 
-        for key in ("Локации", "Маршруты", "События"):
-            if key in cleaned:
-                df = await loop.run_in_executor(None, lambda s=key: pd.read_excel(excel_file, sheet_name=s).fillna(""))
-                rows = valid_rows(df.to_dict(orient="records"), require_date=(key == "События"))
-                TABLE_CACHE[key] = rows
-                logger.info("Кэш '%s': %d строк", key, len(rows))
-            else:
-                logger.warning("Кэш: вкладка '%s' не найдена", key)
+            for key in ("Локации", "Маршруты", "События"):
+                if key in sheets:
+                    df = await loop.run_in_executor(None, lambda s=sheets[key]: pd.read_excel(excel_file, sheet_name=s).fillna(""))
+                    rows = valid_rows(df.to_dict(orient="records"), require_date=(key == "События"))
+                    TABLE_CACHE[key] = rows
+                    logger.info("Кэш '%s': %d строк", key, len(rows))
+                else:
+                    logger.warning("Кэш: вкладка '%s' не найдена", key)
 
-        LAST_CACHE_UPDATE = datetime.now()
-    logger.info("✅ Кэш обновлён")
+            LAST_CACHE_UPDATE = datetime.now()
+        logger.info("✅ Кэш обновлён")
+    finally:
+        await loop.run_in_executor(None, excel_file.close)
+
 
 async def update_sheets_cache():
     while True:
@@ -167,39 +176,37 @@ async def update_sheets_cache():
         except Exception as e:
             logger.error("Ошибка обновления кэша: %s", e)
 
+
 def get_places_from_sheet(target_name: str) -> list[dict]:
-    """Мгновенная выдача из кэша в памяти."""
     if target_name in FOOD_CATEGORIES:
         return [
             r for r in TABLE_CACHE.get("Где поесть", []) if str(r.get("Категория", "")).strip() == target_name
         ]
     return list(TABLE_CACHE.get(target_name, []))
 
+
 # ────────────────────── состояние ──────────────────────
 
 def save_state():
-    """Атомарно: сначала во временный файл, потом os.replace.
-
-    Падение посреди записи не должно превращать bot_state.json в битый файл —
-    иначе при следующем старте теряются все паспорта и XP.
-    """
     try:
-        if len(ANALYTICS_ROWS) > 2000:      # держим файл компактным и в памяти тоже
+        if len(ANALYTICS_ROWS) > 2000:
             del ANALYTICS_ROWS[:-2000]
         payload = {
             "passports": {str(k): v for k, v in PASSPORTS.items()},
             "referrals": {str(k): v for k, v in REFERRALS.items()},
-            "analytics": ANALYTICS_ROWS[-2000:],
+            "analytics": ANALYTICS_ROWS,
         }
         tmp = STATE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False)
         os.replace(tmp, STATE_FILE)
+        if os.name == "posix":
+            os.chmod(STATE_FILE, 0o600)
     except Exception as e:
         logger.warning("Не удалось сохранить состояние: %s", e)
 
+
 def _normalize_passport(p) -> dict | None:
-    """bot_state.json мог прийти из старой версии — дополняем недостающие поля."""
     if not isinstance(p, dict):
         return None
     try:
@@ -212,6 +219,7 @@ def _normalize_passport(p) -> dict | None:
     p.setdefault("daily_xp", {})
     p.setdefault("passport_id", "CC-000000")
     return p
+
 
 def load_state():
     global ANALYTICS_ROWS
@@ -241,6 +249,23 @@ def load_state():
     except Exception as e:
         logger.warning("Не удалось загрузить состояние: %s", e)
 
+
+def warn_insecure_files():
+    if os.name != "posix":
+        return
+    candidates = [BASE_DIR / ".env", Path.cwd() / ".env", Path(STATE_FILE)]
+    env_file = os.getenv("ENV_FILE")
+    if env_file:
+        candidates.append(Path(env_file))
+    for path in dict.fromkeys(candidates):
+        try:
+            mode = path.stat().st_mode & 0o777
+        except OSError:
+            continue
+        if mode & 0o077:
+            logger.warning("%s: права %03o — рекомендую chmod 600", path, mode)
+
+
 # ────────────────────── аналитика ──────────────────────
 
 def log_action(user_id, username, action):
@@ -255,42 +280,51 @@ def log_action(user_id, username, action):
     except Exception as e:
         logger.warning("Analytics error: %s", e)
 
+
 # ────────────────────── паспорт / XP ──────────────────────
 
 PASSPORTS: dict[int, dict] = {}
 REFERRALS: dict[int, dict] = {}
 
+XP_LEVELS = (100, 300, 800, 2000, 4000, 7000)
+
+XP_RANKS = (
+    (100, "Гость города"),
+    (300, "Житель"),
+    (800, "Исследователь"),
+    (2000, "Проводник"),
+    (4000, "Амбассадор"),
+    (7000, "Легенда города"),
+)
+
+
 def calculate_level(xp: int) -> int:
     return int((xp / 100) ** 0.5)
 
+
 def get_rank(xp: int) -> str:
-    if xp < 100:
-        return "Гость города"
-    if xp < 300:
-        return "Житель"
-    if xp < 800:
-        return "Исследователь"
-    if xp < 2000:
-        return "Проводник"
-    if xp < 4000:
-        return "Амбассадор"
-    if xp < 7000:
-        return "Легенда города"
+    for threshold, rank in XP_RANKS:
+        if xp < threshold:
+            return rank
     return "City Code"
 
+
 def get_progress_bar(xp: int) -> str:
-    levels = [0, 100, 300, 800, 2000, 4000, 7000]
-    for i in range(len(levels) - 1):
-        if xp < levels[i + 1]:
-            progress = int((xp - levels[i]) / (levels[i + 1] - levels[i]) * 10)
-            return "▓" * max(0, min(10, progress)) + "░" * (10 - max(0, min(10, progress)))
+    previous = 0
+    for threshold in XP_LEVELS:
+        if xp < threshold:
+            progress = max(0, min(10, int((xp - previous) / (threshold - previous) * 10)))
+            return "▓" * progress + "░" * (10 - progress)
+        previous = threshold
     return "▓" * 10
 
+
 def xp_to_next(xp: int) -> int:
-    for lvl in [100, 300, 800, 2000, 4000, 7000]:
-        if xp < lvl:
-            return lvl - xp
+    for threshold in XP_LEVELS:
+        if xp < threshold:
+            return threshold - xp
     return 0
+
 
 def create_passport_if_not_exists(user):
     if user.id in PASSPORTS:
@@ -304,12 +338,15 @@ def create_passport_if_not_exists(user):
     save_state()
     logger.info("Паспорт создан: %s (+10 XP)", user.full_name)
 
+
 def get_ref_link(user_id: int) -> str:
     return f"https://t.me/SevastopolAIBot?start=ref_{user_id}"
+
 
 REFERRAL_XP = 25
 REFERRAL_BONUS_XP = 40
 REFERRAL_BONUS_DAYS = 7
+
 
 async def process_referral(new_user_id: int, referrer_id: int):
     if referrer_id == new_user_id or new_user_id in REFERRALS:
@@ -319,6 +356,7 @@ async def process_referral(new_user_id: int, referrer_id: int):
         PASSPORTS[referrer_id]["xp"] += REFERRAL_XP
         logger.info("+%d XP рефералу %d", REFERRAL_XP, referrer_id)
     save_state()
+
 
 async def check_referral_bonuses():
     today = datetime.now()
@@ -351,6 +389,7 @@ async def check_referral_bonuses():
             except Exception:
                 pass
 
+
 XP_ACTIVITY_REWARDS = {
     "BTN_MAIN_MENU": 1,
     "BTN_FOOD": 3,
@@ -361,6 +400,7 @@ XP_ACTIVITY_REWARDS = {
     "GEO_FIND": 2,
     "SUGGEST_PLACE": 5,
 }
+
 
 def award_activity_xp(user, action: str) -> int:
     amount = XP_ACTIVITY_REWARDS.get(action)
@@ -382,12 +422,14 @@ def award_activity_xp(user, action: str) -> int:
     logger.info("+%d XP %s (%s) → %d", amount, user.full_name, action, passport["xp"])
     return amount
 
+
 def xp_today(user_id: int) -> int:
     passport = PASSPORTS.get(user_id)
     if not passport:
         return 0
     today = datetime.now().strftime("%Y-%m-%d")
     return sum(passport.get("daily_xp", {}).get(today, {}).values())
+
 
 # ────────────────────── вспомогательное ──────────────────────
 
@@ -405,14 +447,16 @@ main_reply_keyboard = ReplyKeyboardMarkup(
     is_persistent=True,
 )
 
+
 def esc(value) -> str:
     return html.escape(str(value), quote=False)
+
 
 def strip_html(text) -> str:
     return re.sub(r"<[^>]+>", "", str(text))
 
+
 def clean_url(value) -> str:
-    """Возвращает http(s)-URL или пустую строку."""
     s = str(value).strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return ""
@@ -423,19 +467,15 @@ def clean_url(value) -> str:
             return ""
     return s
 
-def is_direct_image_url(url: str) -> bool:
-    """True, если по ссылке лежит картинка, которую Telegram сам скачает.
 
-    В базе часть фото указана ссылками на посты Telegram (https://t.me/...):
-    это не картинка, send_photo по такой ссылке всегда падает с ошибкой 400.
-    Такие карточки сразу отдаём текстом — без лишнего запроса к Telegram API.
-    """
+def is_direct_image_url(url: str) -> bool:
     if not url:
         return False
     host = url.split("/")[2].lower() if url.count("/") >= 2 else url.lower()
     if any(d in host for d in ("t.me", "telegram.me", "telegram.dog")):
         return False
     return True
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000
@@ -447,13 +487,16 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+
 def parse_cat_index(data: str):
     parts = data.split("_")
     return "_".join(parts[2:-1]), int(parts[-1])
 
+
 def parse_foodnear(data: str):
     parts = data.split("_")
     return parts[1], "_".join(parts[2:-1]), int(parts[-1])
+
 
 async def edit_or_reply_text(call: types.CallbackQuery, text: str, reply_markup):
     msg = call.message
@@ -470,30 +513,25 @@ async def edit_or_reply_text(call: types.CallbackQuery, text: str, reply_markup)
         except Exception:
             pass
 
+
 def yandex_maps_url(coords: str) -> str:
-    # coords "44.61, 33.52" → безопасный URL
-    cleaned = coords.replace(" ", "")
-    return f"https://yandex.ru/maps/?text={urllib.parse.quote(cleaned)}"
+    return f"https://yandex.ru/maps/?text={urllib.parse.quote(coords.replace(' ', ''))}"
+
 
 def _truncate_for_caption(text: str, limit: int = 1000) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
 
-# Шапка колонки в Google-таблице исторически набрана с латинской «B»,
-# поэтому поддерживаем оба варианта — иначе время работы/ВК пропадали бы.
+
 WORK_TIME_KEYS = ("Время работы", "Bремя работы")
 VK_KEYS = ("Вконтакте", "Bконтакте")
 
-# Подпись к фото в Telegram — максимум 1024 символа, текст — 4096.
 CAPTION_LIMIT = 1024
 TEXT_LIMIT = 4096
 
-def fit_caption(head: str, description: str, desc_prefix: str) -> str:
-    """Собирает подпись к фото так, чтобы она точно влезла в 1024 символа.
 
-    Режем описание, а не всю карточку: адрес, часы и телефон важнее хвоста текста.
-    """
+def fit_caption(head: str, description: str, desc_prefix: str) -> str:
     body = head + desc_prefix + esc(description) if description else head
     if len(body) <= CAPTION_LIMIT:
         return body
@@ -501,6 +539,7 @@ def fit_caption(head: str, description: str, desc_prefix: str) -> str:
     if budget <= 30:
         return _truncate_for_caption(head, CAPTION_LIMIT)
     return head + desc_prefix + esc(description[:budget]).rstrip() + "…"
+
 
 # ────────────────────── карусели ──────────────────────
 
@@ -541,7 +580,6 @@ def create_carousel_card(places, index: int, category_key: str):
 
     desc_prefix = "💬 <b>О заведении:</b>\n"
     if photo_url:
-        # подпись к фото — максимум 1024 символа
         text = fit_caption(head, description, desc_prefix)
     else:
         text = head + (desc_prefix + esc(description) if description else "")
@@ -589,6 +627,7 @@ def create_carousel_card(places, index: int, category_key: str):
 
     return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), photo_url
 
+
 def create_location_carousel(places, index: int, category_key: str):
     if not places or index < 0 or index >= len(places):
         return "Локация не найдена", None, None
@@ -631,6 +670,7 @@ def create_location_carousel(places, index: int, category_key: str):
     inline_keyboard.append([InlineKeyboardButton(text="🔙 К категориям локаций", callback_data="loc_menu")])
 
     return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), photo_url
+
 
 def create_route_carousel(places, index: int, category_key: str):
     if not places or index < 0 or index >= len(places):
@@ -678,6 +718,7 @@ def create_route_carousel(places, index: int, category_key: str):
 
     return text, InlineKeyboardMarkup(inline_keyboard=inline_keyboard), photo_url
 
+
 # ────────────────────── меню ──────────────────────
 
 def get_main_inline_kb():
@@ -690,6 +731,7 @@ def get_main_inline_kb():
         ]
     )
 
+
 async def show_food_menu(call: types.CallbackQuery, state: FSMContext):
     await state.clear()
     kb = InlineKeyboardMarkup(
@@ -701,6 +743,7 @@ async def show_food_menu(call: types.CallbackQuery, state: FSMContext):
         ]
     )
     await edit_or_reply_text(call, "Шо именно мы ищем? Выбирай категорию: 👇", kb)
+
 
 async def show_locations_menu(call: types.CallbackQuery):
     kb = InlineKeyboardMarkup(
@@ -715,6 +758,7 @@ async def show_locations_menu(call: types.CallbackQuery):
     await edit_or_reply_text(call, "Выбери интересующую категорию локаций: 👇", kb)
     await call.answer()
 
+
 async def show_routes_menu(call: types.CallbackQuery):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -726,6 +770,7 @@ async def show_routes_menu(call: types.CallbackQuery):
     await edit_or_reply_text(call, "Выбери формат твоего трипа: 👇", kb)
     await call.answer()
 
+
 async def show_food_filter_menu(call: types.CallbackQuery, state: FSMContext, category: str):
     messages_map = {
         "coffee": "Отлично, ищем лучший кофе в городе! ☕ Как тебе удобнее выбрать?",
@@ -735,7 +780,6 @@ async def show_food_filter_menu(call: types.CallbackQuery, state: FSMContext, ca
         "sweets": "Время побаловать себя сладеньким! 🍰 Где ищем кондитерскую?",
         "delivery": "Чилл дома, а еда сама едет к тебе? 📦 Выбирай формат:",
     }
-    # сбрасываем прошлый фильтр, чтобы карусель не путалась
     await state.update_data(filtered_places=None, current_category=None)
 
     kb = InlineKeyboardMarkup(
@@ -753,6 +797,7 @@ async def show_food_filter_menu(call: types.CallbackQuery, state: FSMContext, ca
     kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="food_menu")])
     await edit_or_reply_text(call, messages_map.get(category, "Выбирай вариант поиска: 👇"), kb)
 
+
 def parse_event_date(raw):
     if raw is None or (isinstance(raw, float) and pd.isna(raw)):
         return None
@@ -766,12 +811,13 @@ def parse_event_date(raw):
             return datetime.strptime(s, fmt).date()
         except ValueError:
             continue
-    for width, fmt in ((10, "%Y-%m-%d"), (10, "%d.%m.%Y")):
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
         try:
-            return datetime.strptime(s[:width], fmt).date()
+            return datetime.strptime(s[:10], fmt).date()
         except ValueError:
             continue
     return None
+
 
 def _day_label(d):
     today = datetime.now().date()
@@ -781,10 +827,11 @@ def _day_label(d):
         return f"Завтра, {d.strftime('%d.%m')}"
     return f"{d.strftime('%A').capitalize()}, {d.strftime('%d.%m')}"
 
+
 def build_events_message(events):
     header = "📅 <b>Ближайшие события Севастополя:</b>\n"
     markers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-    limit = TEXT_LIMIT - 300   # запас: описание и названия бывают длинными
+    limit = TEXT_LIMIT - 300
     parts = [header]
     used = len(header)
     rows = []
@@ -814,6 +861,7 @@ def build_events_message(events):
     rows.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="main_menu")])
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
 
+
 async def show_events_menu(call: types.CallbackQuery):
     events_list = get_places_from_sheet("События")
     current_date = datetime.now().date()
@@ -836,6 +884,7 @@ async def show_events_menu(call: types.CallbackQuery):
     await call.message.answer(text, reply_markup=markup, parse_mode="HTML")
     await call.answer()
 
+
 # ────────────────────── локации / маршруты ──────────────────────
 
 async def show_location_category(call: types.CallbackQuery, state: FSMContext, category: str):
@@ -848,6 +897,7 @@ async def show_location_category(call: types.CallbackQuery, state: FSMContext, c
     text, markup, photo_url = create_location_carousel(found, 0, category)
     await send_card(call, text, markup, photo_url)
 
+
 async def show_route_category(call: types.CallbackQuery, state: FSMContext, category: str):
     all_routes = get_places_from_sheet("Маршруты")
     found = [r for r in all_routes if category.lower() in str(r.get("Категория", "")).lower()]
@@ -857,6 +907,7 @@ async def show_route_category(call: types.CallbackQuery, state: FSMContext, cate
     await state.update_data(rt_places=found)
     text, markup, photo_url = create_route_carousel(found, 0, category)
     await send_card(call, text, markup, photo_url)
+
 
 async def _send_carousel_page(call, text, markup, photo_url):
     msg = call.message
@@ -882,11 +933,13 @@ async def _send_carousel_page(call, text, markup, photo_url):
         except Exception:
             pass
 
+
 async def show_location_page(call: types.CallbackQuery, state: FSMContext, category: str, index: int):
     state_data = await state.get_data()
     places = state_data.get("loc_places") or [r for r in get_places_from_sheet("Локации") if category.lower() in str(r.get("Категория", "")).lower()]
     text, markup, photo_url = create_location_carousel(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
+
 
 async def show_route_page(call: types.CallbackQuery, state: FSMContext, category: str, index: int):
     state_data = await state.get_data()
@@ -894,15 +947,16 @@ async def show_route_page(call: types.CallbackQuery, state: FSMContext, category
     text, markup, photo_url = create_route_carousel(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
 
+
 # ────────────────────── еда: фильтры ──────────────────────
 
 def check_callback_data(data: str) -> str:
-    """Telegram хранит callback_data в 64 байта: слишком длинный — режем и логируем."""
     raw = data.encode("utf-8")
     if len(raw) <= 64:
         return data
     logger.warning("callback_data длиннее 64 байт (%d): %r", len(raw), data)
     return raw[:64].decode("utf-8", errors="ignore")
+
 
 async def show_districts_menu(call: types.CallbackQuery, category: str):
     sheet_cat = CAT_MAP.get(category, "Кофе")
@@ -923,6 +977,7 @@ async def show_districts_menu(call: types.CallbackQuery, category: str):
     builder.adjust(2, 1)
     await edit_or_reply_text(call, "Выбери интересующий район города: 👇", builder.as_markup())
 
+
 async def show_district_places(call: types.CallbackQuery, state: FSMContext, category: str, district_name: str):
     sheet_cat = CAT_MAP.get(category, "Кофе")
     places = get_places_from_sheet(sheet_cat)
@@ -933,6 +988,7 @@ async def show_district_places(call: types.CallbackQuery, state: FSMContext, cat
     await state.update_data(filtered_places=filtered, current_category=category)
     text, markup, photo_url = create_carousel_card(filtered, 0, category)
     await send_card(call, text, markup, photo_url)
+
 
 async def show_subcategories_menu(call: types.CallbackQuery, category: str):
     sheet_cat = CAT_MAP.get(category, "Кофе")
@@ -950,6 +1006,7 @@ async def show_subcategories_menu(call: types.CallbackQuery, category: str):
     builder.adjust(2, 1)
     await edit_or_reply_text(call, "Выбери подкатегорию: 👇", builder.as_markup())
 
+
 async def show_subcategory_places(call: types.CallbackQuery, state: FSMContext, category: str, sub: str):
     sheet_cat = CAT_MAP.get(category, "Кофе")
     places = get_places_from_sheet(sheet_cat)
@@ -960,6 +1017,7 @@ async def show_subcategory_places(call: types.CallbackQuery, state: FSMContext, 
     await state.update_data(filtered_places=filtered, current_category=category)
     text, markup, photo_url = create_carousel_card(filtered, 0, category)
     await send_card(call, text, markup, photo_url)
+
 
 async def send_card(call, text, markup, photo_url):
     try:
@@ -978,6 +1036,7 @@ async def send_card(call, text, markup, photo_url):
     except Exception:
         pass
 
+
 async def show_all_places(call: types.CallbackQuery, state: FSMContext, category: str):
     sheet_cat = CAT_MAP.get(category, "Кофе")
     places = get_places_from_sheet(sheet_cat)
@@ -987,6 +1046,7 @@ async def show_all_places(call: types.CallbackQuery, state: FSMContext, category
     await state.update_data(filtered_places=places, current_category=category)
     text, markup, photo_url = create_carousel_card(places, 0, category)
     await send_card(call, text, markup, photo_url)
+
 
 async def show_food_page(call: types.CallbackQuery, state: FSMContext, category: str, index: int):
     state_data = await state.get_data()
@@ -1001,6 +1061,7 @@ async def show_food_page(call: types.CallbackQuery, state: FSMContext, category:
         return
     text, markup, photo_url = create_carousel_card(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
+
 
 async def show_nearby_food(call: types.CallbackQuery, state: FSMContext, place_type: str, category: str, index: int):
     state_data = await state.get_data()
@@ -1060,6 +1121,7 @@ async def show_nearby_food(call: types.CallbackQuery, state: FSMContext, place_t
     text, markup, photo_url = create_carousel_card(nearest, 0, "nearfood")
     await send_card(call, text, markup, photo_url)
 
+
 async def _random_carousel_food(call: types.CallbackQuery, state: FSMContext, category: str):
     state_data = await state.get_data()
     if category == "nearfood":
@@ -1075,6 +1137,7 @@ async def _random_carousel_food(call: types.CallbackQuery, state: FSMContext, ca
     text, markup, photo_url = create_carousel_card(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
 
+
 async def _random_carousel_location(call: types.CallbackQuery, state: FSMContext, category: str):
     state_data = await state.get_data()
     places = state_data.get("loc_places") or [r for r in get_places_from_sheet("Локации") if category.lower() in str(r.get("Категория", "")).lower()]
@@ -1084,6 +1147,7 @@ async def _random_carousel_location(call: types.CallbackQuery, state: FSMContext
     index = random.randint(0, len(places) - 1)
     text, markup, photo_url = create_location_carousel(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
+
 
 async def _random_carousel_route(call: types.CallbackQuery, state: FSMContext, category: str):
     state_data = await state.get_data()
@@ -1095,8 +1159,8 @@ async def _random_carousel_route(call: types.CallbackQuery, state: FSMContext, c
     text, markup, photo_url = create_route_carousel(places, index, category)
     await _send_carousel_page(call, text, markup, photo_url)
 
+
 async def send_message_card(message: types.Message, text, markup, photo_url, reply_keyboard=None):
-    """Карточка обычным сообщением (не колбэком) + главная клавиатура под ней."""
     try:
         if photo_url:
             await message.answer_photo(
@@ -1116,9 +1180,15 @@ async def send_message_card(message: types.Message, text, markup, photo_url, rep
         except Exception:
             pass
 
+
 # ────────────────────── предложения ──────────────────────
 
 SUGGEST_WEB_PREFIX = "✍️ ПРЕДЛОЖЕНИЕ:"
+
+
+def is_admin(user_id) -> bool:
+    return ADMIN_ID is not None and user_id == ADMIN_ID
+
 
 # ────────────────────── колбэки ──────────────────────
 
@@ -1137,6 +1207,7 @@ async def callback_handler(call: types.CallbackQuery, state: FSMContext):
             await call.answer()
         except Exception:
             pass
+
 
 async def _route_callback(call: types.CallbackQuery, state: FSMContext):
     data = call.data
@@ -1188,11 +1259,11 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
                 await show_locations_menu(call)
 
     elif data.startswith("rnd_"):
-        body = data[len("rnd_") :]
+        body = data[len("rnd_"):]
         if body.startswith("loc_"):
-            await _random_carousel_location(call, state, body[len("loc_") :])
+            await _random_carousel_location(call, state, body[len("loc_"):])
         elif body.startswith("rt_"):
-            await _random_carousel_route(call, state, body[len("rt_") :])
+            await _random_carousel_route(call, state, body[len("rt_"):])
         else:
             await _random_carousel_food(call, state, body)
 
@@ -1273,6 +1344,7 @@ async def _route_callback(call: types.CallbackQuery, state: FSMContext):
         category, index = parse_cat_index(data)
         await show_route_page(call, state, category, index)
 
+
 # ────────────────────── сообщения ──────────────────────
 
 @dp.message(F.text == "🏠 Главное меню")
@@ -1281,10 +1353,12 @@ async def process_main_menu_btn(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("Вы вернулись в главное меню:", reply_markup=get_main_inline_kb())
 
+
 @dp.message(F.text == "💬 Связь")
 async def process_contact_btn(message: types.Message):
     log_action(message.from_user.id, message.from_user.username, "CONTACT")
     await message.answer("Есть вопросы, предложения или нашли ошибку?\nНапишите нам напрямую: @PavelYuRichRWA", parse_mode="HTML")
+
 
 @dp.message(F.text == "👥 Пригласить друга")
 async def invite_friend(message: types.Message):
@@ -1293,11 +1367,12 @@ async def invite_friend(message: types.Message):
     passport = PASSPORTS[message.from_user.id]
     await message.answer(
         f"🔗 <b>Твоя реферальная ссылка:</b>\n\n<code>{esc(link)}</code>\n\n"
-        f"Друг регистрируется по ней — ты получаешь <b>+25 XP</b>\n"
-        f"Друг активен 7 дней — ещё <b>+40 XP</b>\n\n"
+        f"Друг регистрируется по ней — ты получаешь <b>+{REFERRAL_XP} XP</b>\n"
+        f"Друг активен {REFERRAL_BONUS_DAYS} дней — ещё <b>+{REFERRAL_BONUS_XP} XP</b>\n\n"
         f"Сейчас у тебя: ⚡ {passport['xp']} XP",
         parse_mode="HTML",
     )
+
 
 @dp.message(F.text == "🛂 City Passport")
 async def show_passport(message: types.Message):
@@ -1316,9 +1391,10 @@ async def show_passport(message: types.Message):
         parse_mode="HTML",
     )
 
+
 @dp.message(F.text == "/admin")
 async def admin_stats(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
     unique_users = len({row.get("user_id") for row in ANALYTICS_ROWS if row.get("user_id")})
     actions: dict[str, int] = {}
@@ -1339,6 +1415,7 @@ async def admin_stats(message: types.Message):
         for action, count in sorted(actions.items(), key=lambda x: x[1], reverse=True):
             stats_text += f"{action}: {count}\n"
     await message.answer(stats_text)
+
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
@@ -1364,6 +1441,7 @@ async def cmd_start(message: types.Message):
     )
     await message.answer("Панель управления загружена 👇", reply_markup=main_reply_keyboard)
     await message.answer(welcome_text, reply_markup=get_main_inline_kb())
+
 
 @dp.message(F.location)
 async def handle_user_location(message: types.Message, state: FSMContext):
@@ -1399,9 +1477,8 @@ async def handle_user_location(message: types.Message, state: FSMContext):
     await message.answer("Секунду, ищу ближайшие...", reply_markup=ReplyKeyboardRemove())
     await state.update_data(filtered_places=places_with_distance, current_category=category)
     text, markup, photo_url = create_carousel_card(places_with_distance, 0, category)
-    # главная клавиатура возвращается вместе с карточкой —
-    # иначе после «Рядом со мной» кнопки меню пропадали бы навсегда
     await send_message_card(message, text, markup, photo_url, reply_keyboard=main_reply_keyboard)
+
 
 @dp.message()
 async def fallback_message(message: types.Message, state: FSMContext):
@@ -1412,36 +1489,47 @@ async def fallback_message(message: types.Message, state: FSMContext):
         await state.clear()
         award_activity_xp(user, "SUGGEST_PLACE")
         log_action(user.id, user.username or "", "SUGGEST_WEB_SUBMIT")
-        try:
-            await message.copy_to(chat_id=ADMIN_ID)
-        except Exception as e:
-            logger.warning("Не удалось переслать веб-предложение: %s", e)
+        if ADMIN_ID is None:
+            logger.warning("ADMIN_ID не задан — веб-предложение не переслано владельцу")
+        else:
+            try:
+                await message.copy_to(chat_id=ADMIN_ID)
+            except Exception as e:
+                logger.warning("Не удалось переслать веб-предложение: %s", e)
         await message.answer("Спасибо! 🙌 Передала владельцу бота — проверим и добавим место в базу.")
         return
     await message.answer("Я понимаю только кнопки 🙂 Нажми «🏠 Главное меню» ниже — и покажу город.", reply_markup=get_main_inline_kb())
+
 
 # ────────────────────── запуск ──────────────────────
 
 NO_TOKEN_HELP = """
 ❌ Токен бота не задан!
 
-1) Создай рядом со скриптом файл .env со строкой:
+1) Файл .env рядом со скриптом (шаблон — .env.example):
        TG_TOKEN=123456789:AAABBBCCC
-   (пример — в .env.example)
-2) Или переменная окружения:
+2) Переменная окружения:
        export TG_TOKEN=123456789:AAABBBCCC
-3) Или в Google Colab:
-       import os
+3) Docker:
+       docker run -e TG_TOKEN=123456789:AAABBBCCC ...
+4) systemd:
+       EnvironmentFile=/etc/sevastopol-ai-bot.env
+5) Google Colab:
        os.environ["TG_TOKEN"] = "123456789:AAABBBCCC"
 
-Токен: @BotFather → /mybots → API Token.
+Токен выдаёт @BotFather → /mybots → API Token.
+Хранение, ротация и секреты — в SECURITY.md.
 """
+
 
 async def main():
     load_state()
+    warn_insecure_files()
     if not TG_TOKEN or "ЗАМЕНИ" in TG_TOKEN:
         print(NO_TOKEN_HELP, flush=True)
         sys.exit(2)
+    if ADMIN_ID is None:
+        logger.warning("ADMIN_ID не задан: /admin и пересылка предложений с формы отключены")
     global bot
     bot = Bot(token=TG_TOKEN)
     logger.info("Первое обновление кэша таблиц...")
@@ -1457,13 +1545,13 @@ async def main():
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as e:
-        print("\n" + "!"*70, flush=True)
+        print("\n" + "!" * 70, flush=True)
         print("❌ БОТ НЕ ЗАПУСТИЛСЯ: Telegram API не принял подключение.", flush=True)
         print(f"   Причина: {e}", flush=True)
         print("   Чаще всего: токен отозван/неверен (401) — перевыпусти у @BotFather,", flush=True)
         print("   либо нет доступа к api.telegram.org, либо бот уже запущен", flush=True)
         print("   в другом месте с этим же токеном.", flush=True)
-        print("!"*70 + "\n", flush=True)
+        print("!" * 70 + "\n", flush=True)
         logger.error("Не удалось подключиться к Telegram API: %s", e)
         await bot.session.close()
         sys.exit(1)
@@ -1473,6 +1561,7 @@ async def main():
     finally:
         await bot.session.close()
         save_state()
+
 
 if __name__ == "__main__":
     try:

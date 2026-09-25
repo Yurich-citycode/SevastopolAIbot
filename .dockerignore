@@ -1,8 +1,8 @@
-# В образ не должны попадать секреты и локальный мусор
 .env
-events/.env
+.env.*
+!.env.example
 bot_state.json
-events/forwarder_state.json
+*.json.tmp
 .git
 .gitignore
 __pycache__/

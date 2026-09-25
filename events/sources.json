@@ -1,8 +1,0 @@
-{
-  "target": "me",
-  "channels": [
-    "https://t.me/Sevastopol_AI"
-  ],
-  "poll_seconds": 12,
-  "include_history": false
-}
