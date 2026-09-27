@@ -622,6 +622,196 @@ if os.name == "posix":
     _mode = os.stat(bot.STATE_FILE).st_mode & 0o777
     check("bot_state.json сохраняется с правами 600", _mode == 0o600, f"было {oct(_mode)}")
 
+# ── 13. Экономика City Passport: ранги, грант, verified XP ──────────────
+
+print("== 13. Экономика City Passport ==")
+from datetime import datetime, timedelta  # noqa: E402
+
+bot.PASSPORTS.clear()
+bot.REFERRALS.clear()
+bot.ANALYTICS_ROWS.clear()
+
+# 13.1 calculate_level по порогам рангов (не √-формула)
+check("calculate_level(99) = 0", bot.calculate_level(99) == 0, f"было {bot.calculate_level(99)}")
+check("calculate_level(100) = 1", bot.calculate_level(100) == 1, f"было {bot.calculate_level(100)}")
+check("calculate_level(800) = 3", bot.calculate_level(800) == 3, f"было {bot.calculate_level(800)}")
+check("calculate_level(7000) = 6", bot.calculate_level(7000) == 6, f"было {bot.calculate_level(7000)}")
+check("get_rank и level согласованы на порогах",
+      bot.get_rank(99) == "Гость города" and bot.get_rank(100) == "Житель"
+      and bot.get_rank(799) == "Исследователь" and bot.get_rank(800) == "Проводник"
+      and bot.get_rank(3999) == "Амбассадор" and bot.get_rank(6999) == "Легенда города"
+      and bot.get_rank(7000) == "City Code")
+
+# 13.2 переход 6999 → 7000+: грант открыт, но членство молча не включено
+grant_user = FakeUser(id=700001, username="grantee", full_name="Грант Тест")
+bot.award_activity_xp(grant_user, "BTN_FOOD")  # создаёт паспорт
+gp = bot.PASSPORTS[700001]
+gp["xp"] = 6999
+gp["complimentary_granted"] = False
+gp["complimentary_claimed"] = False
+gained = bot.award_activity_xp(grant_user, "BTN_LOCATIONS")  # +3 → пересекли 7000
+check("начисление пересекло 7000", gained == 3 and gp["xp"] >= 7000)
+check("complimentary_granted = True", gp["complimentary_granted"] is True)
+check("complimentary_claimed = False (не молча)", gp["complimentary_claimed"] is False)
+check("статус ещё GUEST", gp["status"] == "GUEST")
+check("granted_at проставлен", bool(gp["complimentary_granted_at"]))
+
+# 13.3 claim включает MEMBER на 180 дней ±1
+ok, msg_text = bot.claim_citycode_grant(grant_user)
+until = datetime.fromisoformat(gp["member_until"])
+expected = datetime.now() + timedelta(days=180)
+check("claim прошёл", ok, msg_text)
+check("статус MEMBER, source=xp_grant", gp["status"] == "MEMBER" and gp["member_source"] == "xp_grant")
+check("member_until = +180 дней ±1", abs((until - expected).days) <= 1, f"было {gp['member_until']}")
+check("is_member_active = True", bot.is_member_active(700001))
+
+# 13.4 повторный claim — отказ
+ok2, msg2 = bot.claim_citycode_grant(grant_user)
+check("повторный claim — отказ", not ok2 and "уже" in msg2)
+gp["xp"] = 500
+gp["xp"] = 8000
+check("грант не выдаётся повторно после падения/роста XP",
+      not bot.maybe_unlock_citycode_grant(700001))
+
+# 13.5 уже MEMBER по оплате: claim добавляет 180 дней, оплату не сбрасывает
+paid_user = FakeUser(id=700002, username="payer", full_name="Оплативший")
+bot.create_passport_if_not_exists(paid_user)
+pp = bot.PASSPORTS[700002]
+paid_until = datetime.now() + timedelta(days=30)
+pp.update(status="MEMBER", member_source="paid", member_until=paid_until.isoformat(),
+          complimentary_granted=True, complimentary_claimed=False)
+ok3, _ = bot.claim_citycode_grant(paid_user)
+new_until = datetime.fromisoformat(pp["member_until"])
+check("claim у оплаченного MEMBER прошёл", ok3)
+check("срок удлинился ровно на 180 дней", abs((new_until - paid_until).days - 180) <= 1,
+      f"было {pp['member_until']}")
+check("source стал mixed (оплата не потеряна)", pp["member_source"] == "mixed")
+
+# 13.6 членство ≠ ранг: оплата не требует 7000 XP, ранг не продаётся
+low_user = FakeUser(id=700003, username="lowxp", full_name="Житель Оплатил")
+bot.create_passport_if_not_exists(low_user)
+bot.PASSPORTS[700003]["xp"] = 150
+bot.set_member(700003, 30, "paid")
+check("Житель может быть MEMBER (оплата)", bot.PASSPORTS[700003]["status"] == "MEMBER")
+check("ранг при этом остался Житель", bot.get_rank(bot.PASSPORTS[700003]["xp"]) == "Житель")
+
+# 13.7 expire_memberships: срок вышел → GUEST, ранг не трогаем
+bot.PASSPORTS[700003]["member_until"] = (datetime.now() - timedelta(days=1)).isoformat()
+bot.expire_memberships()
+check("истёкший MEMBER вернулся в GUEST", bot.PASSPORTS[700003]["status"] == "GUEST")
+check("XP после истечения не изменился", bot.PASSPORTS[700003]["xp"] == 150)
+
+# 13.8 реферал-бонус +40 НЕ даётся, если активность только меню
+referrer = FakeUser(id=700010, username="refer", full_name="Реферер")
+bot.create_passport_if_not_exists(referrer)
+ref_xp_before = bot.PASSPORTS[700010]["xp"]
+lazy_id = 700011
+ref_date = datetime.now() - timedelta(days=8)
+bot.REFERRALS[lazy_id] = {"referrer": 700010, "date": ref_date.isoformat(), "bonus_given": False}
+for day in range(3):  # три дня, но только кнопка меню
+    ts = (ref_date + timedelta(days=day, hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    bot.ANALYTICS_ROWS.append({"date": ts, "user_id": lazy_id, "username": "", "action": "BTN_MAIN_MENU"})
+asyncio.run(bot.check_referral_bonuses())
+check("бонус не выдан за одно лишь меню",
+      bot.PASSPORTS[700010]["xp"] == ref_xp_before and not bot.REFERRALS[lazy_id]["bonus_given"])
+
+# два дня реальной активности — всё ещё мало (нужно 3 разных дня)
+few_id = 700012
+bot.REFERRALS[few_id] = {"referrer": 700010, "date": ref_date.isoformat(), "bonus_given": False}
+for day in range(2):
+    ts = (ref_date + timedelta(days=day, hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    bot.ANALYTICS_ROWS.append({"date": ts, "user_id": few_id, "username": "", "action": "BTN_FOOD"})
+asyncio.run(bot.check_referral_bonuses())
+check("бонус не выдан за активность в 2 дня", not bot.REFERRALS[few_id]["bonus_given"])
+
+# живой реферал: 3 разных дня, не только меню → +40
+alive_id = 700013
+bot.REFERRALS[alive_id] = {"referrer": 700010, "date": ref_date.isoformat(), "bonus_given": False}
+for day in range(3):
+    ts = (ref_date + timedelta(days=day, hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+    bot.ANALYTICS_ROWS.append({"date": ts, "user_id": alive_id, "username": "", "action": "BTN_ROUTES"})
+asyncio.run(bot.check_referral_bonuses())
+check("живой реферал: бонус +40 выдан",
+      bot.REFERRALS[alive_id]["bonus_given"]
+      and bot.PASSPORTS[700010]["xp"] == ref_xp_before + bot.REFERRAL_BONUS_XP)
+
+# 13.9 migrate старого паспорта {"xp": 10} не падает и дополняет схему
+old = bot.migrate_passport({"xp": 10})
+check("migrate {'xp':10}: xp остался 10", old["xp"] == 10)
+check("migrate: статус GUEST и поля гранта на месте",
+      old["status"] == "GUEST" and old["complimentary_granted"] is False
+      and old["member_until"] is None and old["xp_log"] == [] and old["xp_revoked"] == [])
+with open(bot.STATE_FILE, "w", encoding="utf-8") as f:
+    f.write('{"passports": {"31337": {"xp": 10}}, "referrals": {}, "analytics": []}')
+bot.PASSPORTS.clear()
+bot.load_state()
+check("load_state дописывает дефолты старому паспорту",
+      bot.PASSPORTS[31337]["xp"] == 10 and bot.PASSPORTS[31337]["status"] == "GUEST"
+      and bot.PASSPORTS[31337]["partner_nodes"] == [])
+
+# 13.10 verified XP: свои лимиты, вне дневного лимита кнопок
+vu = FakeUser(id=700020, username="ver", full_name="Верифицированный")
+bot.create_passport_if_not_exists(vu)
+vp = bot.PASSPORTS[700020]
+base_xp = vp["xp"]
+check("PLACE_ACCEPTED = +40 и счётчик мест", bot.award_verified_xp(vu, "PLACE_ACCEPTED", actor="admin") == 40
+      and vp["accepted_places"] == 1)
+check("ROUTE_ACCEPTED = +70", bot.award_verified_xp(vu, "ROUTE_ACCEPTED", actor="admin") == 70)
+r1 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
+r2 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
+r3 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
+check("REVIEW_ACCEPTED: max 2/день", (r1, r2, r3) == (10, 10, 0))
+check("CLUB_APPLY: только 1 раз",
+      bot.award_verified_xp(vu, "CLUB_APPLY") == 20 and bot.award_verified_xp(vu, "CLUB_APPLY") == 0
+      and bool(vp["club_applied_at"]))
+c1 = bot.award_verified_xp(vu, "EVENT_CHECKIN", actor="admin", meta={"event_id": "EV1"})
+c2 = bot.award_verified_xp(vu, "EVENT_CHECKIN", actor="admin", meta={"event_id": "EV1"})
+check("EVENT_CHECKIN: 1/событие", (c1, c2) == (60, 0) and len(vp["checkins"]) == 1)
+n1 = bot.award_verified_xp(vu, "PARTNER_NODE_CONNECTED", actor="admin", meta={"node_id": "N1"})
+n2 = bot.award_verified_xp(vu, "PARTNER_NODE_CONNECTED", actor="admin", meta={"node_id": "N1"})
+n3 = bot.award_verified_xp(vu, "PARTNER_NODE_30D", actor="admin", meta={"node_id": "N1"})
+check("узел: 1 раз на точку, 30d сразу не дают", (n1, n2, n3) == (200, 0, 0))
+check("ЦФА без actor=admin — 0", bot.award_verified_xp(vu, "CFA_ISSUED") == 0)
+check("ЦФА от админа начисляется", bot.award_verified_xp(vu, "CFA_CALL", actor="admin") == 30)
+check("verified XP не пишется в дневной лимит кнопок", bot.xp_today(700020) == 0)
+check("xp_log ведётся и не пуст", len(vp["xp_log"]) > 0)
+expected_xp = base_xp + 40 + 70 + 10 + 10 + 20 + 60 + 200 + 30
+check("итоговый XP сходится", vp["xp"] == expected_xp, f"было {vp['xp']}, ждали {expected_xp}")
+
+# 13.11 revoke_xp: снятие с записью причины
+bot.revoke_xp(700020, 100, "фарм саджестов")
+check("revoke_xp снял 100", vp["xp"] == expected_xp - 100)
+check("запись в xp_revoked", vp["xp_revoked"][-1]["reason"] == "фарм саджестов"
+      and vp["xp_revoked"][-1]["amount"] == 100)
+
+# 13.12 темп года: авто-кнопки не раздуты, потолок дня < 40
+auto_max = sum(v for v in bot.XP_ACTIVITY_REWARDS.values())
+check("авто-потолок дня с саджестом = 22 (< 40)", auto_max == 22, f"было {auto_max}")
+no_suggest = auto_max - bot.XP_ACTIVITY_REWARDS["SUGGEST_PLACE"]
+year_clicks = no_suggest * 365 + 10
+check("чистые клики за год не добивают 7000 (≈8–12 мес с UGC)",
+      6000 <= year_clicks < 7000, f"было {year_clicks}")
+
+# 13.13 UI паспорта: ранг из сетки, статус, кнопка гранта, реф-ссылка
+ui_user = FakeUser(id=700030, username="uier", full_name="Интерфейс")
+bot.create_passport_if_not_exists(ui_user)
+up = bot.PASSPORTS[700030]
+up["xp"] = 6999
+up["complimentary_granted"] = True
+up["complimentary_claimed"] = False
+text, markup = bot.build_passport_view(700030)
+btns = kb_texts(markup)[0] if markup else []
+check("паспорт: ранг по сетке (Легенда города на 6999)", "Легенда города" in text)
+check("паспорт: level выровнен с рангом (5)", "Level: 5" in text)
+check("паспорт: статус показан", "Статус: GUEST" in text)
+check("паспорт: кнопка активации 6 месяцев", any("Активировать 6 месяцев City Code" in b for b in btns))
+check("паспорт: текст награды гранта", "Это ключ за работу с городом" in text)
+check("паспорт: реф-ссылка с Жителя", bot.get_ref_link(700030) in text)
+up["xp"] = 50
+text2, markup2 = bot.build_passport_view(700030)
+check("до 100 XP реф-ссылки нет", bot.get_ref_link(700030) not in text2)
+
+
 # ── Итог ─────────────────────────────────────────────────────────────────
 print(f"\nИТОГ: {PASS} прошло, {FAIL} упало")
 sys.exit(1 if FAIL else 0)
