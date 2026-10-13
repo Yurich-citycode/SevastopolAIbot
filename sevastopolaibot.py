@@ -38,7 +38,7 @@ BASE_DIR = Path(__file__).resolve().parent
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_SPREADSHEET_ID = "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI"
+DEFAULT_SPREADSHEET_ID = "1Pg6js5B9VvZ00c-VPW_QNK9cvY12hRgM"
 DEFAULT_NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
 DEFAULT_SUGGEST_FORM_URL = "https://yurich-citycode.github.io/SevastopolAIbot/suggest.html"
 

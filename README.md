@@ -114,7 +114,7 @@ settings = dict(os.environ)
 settings.update({
     "TG_TOKEN": TG_TOKEN,
     "ADMIN_ID": ADMIN_ID,
-    "SPREADSHEET_ID": "1RaHoS_8Ov-kNKSZJK015ceC6H3fsWnW-D-8Yee4ckQI",
+    "SPREADSHEET_ID": "1Pg6js5B9VvZ00c-VPW_QNK9cvY12hRgM",
     "NEWS_CHANNEL_URL": "https://t.me/Sevastopol_AI",
     "REFRESH_SECONDS": "600",
     "STATE_FILE": "bot_state.json",
