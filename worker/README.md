@@ -43,7 +43,7 @@ Telegram Bot API. Заявки приходят мне на `ADMIN_ID`.
 9. Открываю в браузере `https://sevastopol-suggest.<мой-сабдомен>.workers.dev`.
    Должна появиться страница «✓ Сервис заявок Sevastopol AI работает».
 10. Открываю мою форму
-    https://yurich-citycode.github.io/SevastopolAIbot/suggest.html, заполняю
+    https://yurich-citycode.github.io/YuRichHUB/suggest.html, заполняю
     её и нажимаю «Отправить». Заявка должна прийти мне в личку.
 
 ### Шаг 6. Подключить адрес к форме

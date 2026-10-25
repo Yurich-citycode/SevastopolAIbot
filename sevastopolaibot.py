@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SPREADSHEET_ID = "1Pg6js5B9VvZ00c-VPW_QNK9cvY12hRgM"
 DEFAULT_NEWS_CHANNEL_URL = "https://t.me/Sevastopol_AI"
-DEFAULT_SUGGEST_FORM_URL = "https://yurich-citycode.github.io/SevastopolAIbot/suggest.html"
+DEFAULT_SUGGEST_FORM_URL = "https://yurich-citycode.github.io/YuRichHUB/suggest.html"
 
 
 def load_env() -> None:
