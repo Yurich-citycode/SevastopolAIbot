@@ -85,6 +85,7 @@ STATE_FILE = env_str("STATE_FILE", "bot_state.json")
 
 TABLE_CACHE = {"Где поесть": [], "Локации": [], "Маршруты": [], "События": []}
 ANALYTICS_ROWS: list[dict] = []
+SETTINGS: dict = {}  # то, что владелец меняет командами: seats_open, founders_open
 LAST_CACHE_UPDATE = None
 CACHE_LOCK = asyncio.Lock()
 
@@ -196,6 +197,7 @@ def save_state():
             "passports": {str(k): v for k, v in PASSPORTS.items()},
             "referrals": {str(k): v for k, v in REFERRALS.items()},
             "analytics": ANALYTICS_ROWS,
+            "settings": SETTINGS,
         }
         tmp = STATE_FILE + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -275,6 +277,8 @@ def load_state():
                 REFERRALS[int(k)] = v
             except (TypeError, ValueError):
                 continue
+        if isinstance(data.get("settings"), dict):
+            SETTINGS.update(data["settings"])
         rows = data.get("analytics") or []
         ANALYTICS_ROWS = [r for r in rows if isinstance(r, dict) and "action" in r]
         dups = fix_duplicate_passport_ids()
@@ -760,15 +764,15 @@ def xp_today(user_id: int) -> int:
 
 XP_VERIFIED_REWARDS = {
     # Слой города / UGC (сырой саджест SUGGEST_PLACE=5 живёт в XP_ACTIVITY_REWARDS, 1/день)
-    "PLACE_ACCEPTED": 60,  # за место, после модерации (v1.1: было 40)
+    "PLACE_ACCEPTED": 100,  # за место, после модерации (v1.2: регулярный вкладчик берёт 7000 XP примерно за год)
     "PLACE_FIX_ACCEPTED": 15,  # правка фото/координат, max 3/день
-    "ROUTE_ACCEPTED": 100,  # за принятый маршрут (v1.1: было 70)
-    "REVIEW_ACCEPTED": 10,  # отзыв с фактом, max 2/день
+    "ROUTE_ACCEPTED": 150,  # за принятый маршрут
+    "REVIEW_ACCEPTED": 15,  # отзыв с фактом, max 2/день
     # Слой City Code
     "CLUB_APPLY": 20,  # 1 раз, заявка отправлена
     # v1.1: CLUB_PAID_MONTH удалён (членство только годовое), за оплату XP не даём — ранг не продаётся
     "CLUB_PAID_YEAR": 0,
-    "EVENT_CHECKIN": 80,  # 1/событие, только чекин хостом (v1.1: было 60)
+    "EVENT_CHECKIN": 100,  # 1/событие, только чекин хостом
     "MEMBER_REFERRAL_PAID": 120,  # привёл человека, который оплатил клуб; max 6 за 365 дней
     "PARTNER_NODE_CONNECTED": 200,  # 1 раз на точку, админ подтвердил
     "PARTNER_NODE_30D": 80,  # раз в 30 дней, если узел жив
@@ -1964,7 +1968,7 @@ def _arg_int(args: list[str], index: int):
 
 @dp.message(Command("grant_place", "xp_place"))
 async def cmd_grant_place(message: types.Message):
-    """/xp_place user_id (старое имя /grant_place) — принятое место после модерации (+60 XP)."""
+    """/xp_place user_id (старое имя /grant_place) — принятое место после модерации (+100 XP)."""
     if not is_admin(message.from_user.id):
         return
     args = _cmd_args(message)
@@ -1981,7 +1985,7 @@ async def cmd_grant_place(message: types.Message):
 
 @dp.message(Command("checkin"))
 async def cmd_checkin(message: types.Message):
-    """/checkin user_id event_id — чекин хостом на событии (+80 XP, 1/событие)."""
+    """/checkin user_id event_id — чекин хостом на событии (+100 XP, 1/событие)."""
     if not is_admin(message.from_user.id):
         return
     args = _cmd_args(message)
@@ -2013,7 +2017,7 @@ async def _simple_verified(message: types.Message, action: str, label: str):
 
 @dp.message(Command("xp_route"))
 async def cmd_xp_route(message: types.Message):
-    """/xp_route user_id — принятый маршрут (+100 XP)."""
+    """/xp_route user_id — принятый маршрут (+150 XP)."""
     await _simple_verified(message, "ROUTE_ACCEPTED", "Маршрут принят")
 
 
@@ -2025,11 +2029,18 @@ async def cmd_xp_fix(message: types.Message):
 
 @dp.message(Command("xp_review"))
 async def cmd_xp_review(message: types.Message):
-    """/xp_review user_id — отзыв с фактом (+10 XP, max 2/день)."""
+    """/xp_review user_id — отзыв с фактом (+15 XP, max 2/день)."""
     await _simple_verified(message, "REVIEW_ACCEPTED", "Отзыв принят")
 
 
-CLUB_SEATS_OPEN = env_int("CLUB_SEATS_OPEN", 0) or 0  # 15 × подписанных партнёров; 0 = не проверять
+CLUB_SEATS_OPEN = env_int("CLUB_SEATS_OPEN", 0) or 0  # стартовое число мест; дальше меняется командой /seats
+CLUB_FOUNDERS_OPEN = bool(env_int("CLUB_FOUNDERS_OPEN", 0))  # стартовое; дальше /founders on|off
+
+
+def club_seats() -> int:
+    """Сколько мест открыто: то, что владелец поставил командой /seats, иначе из настроек."""
+    v = SETTINGS.get("seats_open")
+    return int(v) if v is not None else CLUB_SEATS_OPEN
 MEMBER_PLANS = {"basic": 365, "founder": 365}
 
 
@@ -2065,6 +2076,8 @@ async def cmd_paid(message: types.Message):
     set_member(uid, MEMBER_PLANS[plan], source="paid")
     if PASSPORTS[uid].get("member_plan") != "founder":  # Основатель остаётся Основателем
         PASSPORTS[uid]["member_plan"] = plan
+    PASSPORTS[uid]["club_applied_at"] = None  # из листа ожидания вышел
+    PASSPORTS[uid].pop("seat_offered_at", None)
     save_state()
     p = PASSPORTS[uid]
     lines = [f"✅ {uid}: {plan}, членство до {p['member_until'][:10]}"]
@@ -2074,8 +2087,8 @@ async def cmd_paid(message: types.Message):
             f"🔗 Реферер {ref_id}: +{amount} XP" + (", +30 дней членства" if extended else "")
             if amount else f"🔗 Реферер {ref_id}: лимит 6/год или нет паспорта — без бонуса"
         )
-    if CLUB_SEATS_OPEN and active_members_count() > CLUB_SEATS_OPEN:
-        lines.append(f"⚠️ Участников {active_members_count()} > открытых мест {CLUB_SEATS_OPEN}. Нужен новый партнёр (15 мест).")
+    if club_seats() and active_members_count() > club_seats():
+        lines.append(f"⚠️ Участников {active_members_count()} > открытых мест {club_seats()}. Добавь места: /seats N")
     await message.answer("\n".join(lines))
 
 
@@ -2124,21 +2137,18 @@ async def cmd_sources(message: types.Message):
 
 CLUB_PRICE_BASIC = env_int("CLUB_PRICE_BASIC", 5108) or 5108  # ₽ в год, считано в hubtest
 CLUB_PRICE_FOUNDER = env_int("CLUB_PRICE_FOUNDER", 15108) or 15108
-SEATS_PER_PARTNER = 15
-FOUNDERS_MIN_PARTNERS = 4
 CLUB_INFO_BUTTON = "🔑 City Code: условия и лист ожидания"
 CLUB_JOIN_BUTTON = "✋ Хочу в клуб"
 
 
 def seats_free() -> int:
-    """Свободные места: 15 × партнёров минус действующие участники."""
-    if CLUB_SEATS_OPEN <= 0:
-        return 0
-    return max(0, CLUB_SEATS_OPEN - active_members_count())
+    """Свободные места: открытые минус действующие участники."""
+    return max(0, club_seats() - active_members_count())
 
 
 def founders_open() -> bool:
-    return CLUB_SEATS_OPEN >= SEATS_PER_PARTNER * FOUNDERS_MIN_PARTNERS
+    v = SETTINGS.get("founders_open")
+    return bool(v) if v is not None else CLUB_FOUNDERS_OPEN
 
 
 def waitlist_queue() -> list[int]:
@@ -2165,7 +2175,7 @@ def build_club_view(user_id: int):
     founder_line = (
         f"• Основатель — {_rub(CLUB_PRICE_FOUNDER)} ₽ в год + набор основателя"
         if founders_open()
-        else f"• Основатель — {_rub(CLUB_PRICE_FOUNDER)} ₽ в год + набор; откроется, когда будет {FOUNDERS_MIN_PARTNERS} партнёра"
+        else f"• Основатель — {_rub(CLUB_PRICE_FOUNDER)} ₽ в год + набор; 50 мест, откроются позже"
     )
     lines = [
         "🔑 <b>City Code</b> — клуб Севастополя.",
@@ -2176,7 +2186,7 @@ def build_club_view(user_id: int):
         f"• Базовый — {_rub(CLUB_PRICE_BASIC)} ₽ в год (меньше {per_day + 1} ₽ в день)",
         founder_line,
         "",
-        f"Мест столько, сколько партнёров: {SEATS_PER_PARTNER} на каждого.",
+        "Мест немного: новые открываем вместе с новыми партнёрами, чтобы вас хорошо принимали.",
     ]
     if free:
         lines += [f"✅ Свободно мест: {free}. Нажми «{CLUB_JOIN_BUTTON}» — пришлём оплату по СБП и чек."]
@@ -2227,7 +2237,7 @@ def waitlist_report() -> str:
     queue = waitlist_queue()
     if not queue:
         return "📋 Лист ожидания пуст."
-    lines = [f"📋 Лист ожидания: {len(queue)} · свободно мест: {seats_free()} (CLUB_SEATS_OPEN={CLUB_SEATS_OPEN})", ""]
+    lines = [f"📋 Лист ожидания: {len(queue)} · открыто мест: {club_seats()} · свободно: {seats_free()}", ""]
     for i, uid in enumerate(queue[:50], 1):
         p = PASSPORTS[uid]
         uname = f" @{p['username']}" if p.get("username") else ""
@@ -2244,6 +2254,60 @@ async def cmd_club(message: types.Message):
     log_action(message.from_user.id, message.from_user.username, "CLUB_INFO")
     text, markup = build_club_view(message.from_user.id)
     await message.answer(text, reply_markup=markup, parse_mode="HTML")
+
+
+def offer_seats() -> list[int]:
+    """Свободные места → первым в листе ожидания пишем, что место открылось (один раз)."""
+    offered = []
+    free = seats_free() - sum(1 for uid in waitlist_queue() if PASSPORTS[uid].get("seat_offered_at"))
+    for uid in waitlist_queue():
+        if free <= 0:
+            break
+        p = PASSPORTS[uid]
+        if p.get("seat_offered_at"):
+            continue
+        p["seat_offered_at"] = datetime.now().isoformat()
+        offered.append(uid)
+        free -= 1
+        if bot is not None:
+            try:
+                asyncio.get_running_loop().create_task(bot.send_message(
+                    uid, "🔑 Для тебя открылось место в City Code. Скоро напишем с оплатой — или напиши сам в «💬 Связь»."))
+            except Exception as e:
+                logger.warning("Не удалось написать %s: %s", uid, e)
+    if offered:
+        save_state()
+    return offered
+
+
+@dp.message(Command("seats"))
+async def cmd_seats(message: types.Message):
+    """/seats N — сколько мест открыто (вместо правки .env и перезапуска)."""
+    if not is_admin(message.from_user.id):
+        return
+    n = _arg_int(_cmd_args(message), 0)
+    if n is not None:
+        SETTINGS["seats_open"] = max(0, n)
+        save_state()
+    offered = offer_seats() if n is not None else []
+    lines = [f"🔑 Открыто мест: {club_seats()} · участников: {active_members_count()} · свободно: {seats_free()} · ждут: {len(waitlist_queue())}"]
+    if offered:
+        lines.append("Написал из листа ожидания: " + ", ".join(str(u) for u in offered) + ". Пришли им оплату, потом /paid.")
+    if n is None:
+        lines.append("Поменять: /seats 45")
+    await message.answer("\n".join(lines))
+
+
+@dp.message(Command("founders"))
+async def cmd_founders(message: types.Message):
+    """/founders on|off — открыть или закрыть продажу «Основателей»."""
+    if not is_admin(message.from_user.id):
+        return
+    arg = (_cmd_args(message) or [""])[0].lower()
+    if arg in ("on", "off"):
+        SETTINGS["founders_open"] = arg == "on"
+        save_state()
+    await message.answer(f"«Основатели»: {'открыты' if founders_open() else 'закрыты'}. Поменять: /founders on или /founders off")
 
 
 @dp.message(Command("waitlist"))
@@ -2390,20 +2454,24 @@ async def cmd_backup(message: types.Message):
     await message.answer_document(FSInputFile(path), caption=f"Бэкап: {len(PASSPORTS)} паспортов")
 
 
-ADMIN_HELP = """🛠 Команды владельца
+def admin_help() -> str:
+    v = XP_VERIFIED_REWARDS
+    return f"""🛠 Команды владельца
 /admin — статистика
 /sources — источники src_
+/seats [N] — сколько мест в клубе открыто (без N — показать)
+/founders on|off — открыть или закрыть «Основателей»
+/waitlist — лист ожидания клуба
 /paid user_id basic|founder [referrer_id] — оплата года
 /ref_paid referrer_id — приглашённый оплатил
 /set_member user_id days source — членство вручную
-/xp_place user_id — место принято (+60)
-/xp_route user_id — маршрут принят (+100)
-/xp_fix user_id — правка (+15, 3/день)
-/xp_review user_id — отзыв (+10, 2/день)
-/checkin user_id event_id — чекин на событии (+80)
-/partner_node user_id node_id — узел партнёра (+200, потом +80 раз в 30 дней)
+/xp_place user_id — место принято (+{v['PLACE_ACCEPTED']})
+/xp_route user_id — маршрут принят (+{v['ROUTE_ACCEPTED']})
+/xp_fix user_id — правка (+{v['PLACE_FIX_ACCEPTED']}, {VERIFIED_DAILY_LIMITS['PLACE_FIX_ACCEPTED']}/день)
+/xp_review user_id — отзыв (+{v['REVIEW_ACCEPTED']}, {VERIFIED_DAILY_LIMITS['REVIEW_ACCEPTED']}/день)
+/checkin user_id event_id — чекин на событии (+{v['EVENT_CHECKIN']})
+/partner_node user_id node_id — узел партнёра (+{v['PARTNER_NODE_CONNECTED']}, потом +{v['PARTNER_NODE_30D']} раз в 30 дней)
 /revoke_xp user_id amount причина — снять XP
-/waitlist — лист ожидания клуба
 /forget user_id — удалить данные по просьбе человека
 /backup — прислать бэкап состояния"""
 
@@ -2412,7 +2480,7 @@ ADMIN_HELP = """🛠 Команды владельца
 async def cmd_help_admin(message: types.Message):
     if not is_admin(message.from_user.id):
         return
-    await message.answer(ADMIN_HELP)
+    await message.answer(admin_help())
 
 
 @dp.message(Command("set_member"))

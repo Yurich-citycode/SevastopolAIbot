@@ -48,48 +48,24 @@ python sevastopolaibot.py          # запуск: пока окно откры�
 
 `tools/setup_env.py` — мастер настройки: токен вводится скрытно (на экране не появляется), `.env` создаётся с правами 600, а в конце мастер проверяет токен у Telegram и пишет `✅ Токен рабочий: @твой_бот`.
 
-### Способ В — VPS с systemd (работает 24/7)
+### Способ В — свой сервер, 24/7, одной командой
 
-Нужен любой сервер с Ubuntu или Debian (например, Timeweb, Aeza, Hetzner) и доступ по SSH.
+Подойдёт любой сервер с Ubuntu или Debian (Timeweb, Aeza, Hetzner и т. п.), к которому есть доступ по SSH.
 
-```bash
-sudo apt update && sudo apt install -y python3-venv git
-git clone https://github.com/Yurich-citycode/SevastopolAIbot.git /opt/sevastopol-ai-bot
-cd /opt/sevastopol-ai-bot
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python tools/setup_env.py          # создаст /opt/sevastopol-ai-bot/.env
-
-sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
-sudo nano /etc/sevastopol-ai-bot.env         # впиши две строки:
-#   TG_TOKEN=...
-#   ADMIN_ID=...
-```
-
-Затем служба `sudo nano /etc/systemd/system/sevastopol-ai-bot.service`:
-
-```ini
-[Unit]
-Description=Sevastopol AI Bot
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-WorkingDirectory=/opt/sevastopol-ai-bot
-EnvironmentFile=/etc/sevastopol-ai-bot.env
-ExecStart=/opt/sevastopol-ai-bot/.venv/bin/python -u sevastopolaibot.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
+1. На GitHub: зелёная кнопка **Code** → **Download ZIP**.
+2. Закинь архив на сервер, например так: `scp SevastopolAIbot-main.zip root@АДРЕС:~`.
+3. На сервере:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now sevastopol-ai-bot
-journalctl -u sevastopol-ai-bot -f      # логи в реальном времени, выход — Ctrl+C
+apt install -y unzip && unzip SevastopolAIbot-main.zip && cd SevastopolAIbot-main
+sudo bash install.sh
 ```
+
+Установщик спросит токен и ID и включит автозапуск. В конце он напишет «✅ Бот работает».
+
+- **Новая версия:** распакуй новый ZIP и снова выполни `sudo bash install.sh`. Паспорта и токен сохранятся.
+- **Переезд с компьютера или Colab:** положи старый `bot_state.json` рядом с `install.sh` до запуска.
+- **Логи:** `journalctl -u sevastopol-ai-bot -f`. Выход — Ctrl+C.
 
 ---
 

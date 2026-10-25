@@ -405,7 +405,7 @@ async def test_callbacks():
           len(copied) == 1 and copied[0]["chat_id"] == bot.ADMIN_ID)
     check("пользователю подтверждение", "Передала владельцу" in msg.last_text())
     check("v1.1: сырое предложение = 0 XP (XP — после приёмки)", bot.PASSPORTS[777]["xp"] == 10)
-    check("пользователю обещаны XP за принятое место", "+60 XP" in msg.last_text())
+    check("пользователю обещаны XP за принятое место", "+100 XP" in msg.last_text())
 
     # 7.8 suggest_cancel (остаток старой клавиатуры): колбэк не роняет бот
     st6 = FakeState()
@@ -755,19 +755,19 @@ vu = FakeUser(id=700020, username="ver", full_name="Верифицированн
 bot.create_passport_if_not_exists(vu)
 vp = bot.PASSPORTS[700020]
 base_xp = vp["xp"]
-check("PLACE_ACCEPTED = +60 и счётчик мест", bot.award_verified_xp(vu, "PLACE_ACCEPTED", actor="admin") == 60
+check("PLACE_ACCEPTED = +100 и счётчик мест", bot.award_verified_xp(vu, "PLACE_ACCEPTED", actor="admin") == 100
       and vp["accepted_places"] == 1)
-check("ROUTE_ACCEPTED = +100", bot.award_verified_xp(vu, "ROUTE_ACCEPTED", actor="admin") == 100)
+check("ROUTE_ACCEPTED = +150", bot.award_verified_xp(vu, "ROUTE_ACCEPTED", actor="admin") == 150)
 r1 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
 r2 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
 r3 = bot.award_verified_xp(vu, "REVIEW_ACCEPTED", actor="admin")
-check("REVIEW_ACCEPTED: max 2/день", (r1, r2, r3) == (10, 10, 0))
+check("REVIEW_ACCEPTED: max 2/день", (r1, r2, r3) == (15, 15, 0))
 check("CLUB_APPLY: только 1 раз",
       bot.award_verified_xp(vu, "CLUB_APPLY") == 20 and bot.award_verified_xp(vu, "CLUB_APPLY") == 0
       and bool(vp["club_applied_at"]))
 c1 = bot.award_verified_xp(vu, "EVENT_CHECKIN", actor="admin", meta={"event_id": "EV1"})
 c2 = bot.award_verified_xp(vu, "EVENT_CHECKIN", actor="admin", meta={"event_id": "EV1"})
-check("EVENT_CHECKIN: 1/событие", (c1, c2) == (80, 0) and len(vp["checkins"]) == 1)
+check("EVENT_CHECKIN: 1/событие", (c1, c2) == (100, 0) and len(vp["checkins"]) == 1)
 n1 = bot.award_verified_xp(vu, "PARTNER_NODE_CONNECTED", actor="admin", meta={"node_id": "N1"})
 n2 = bot.award_verified_xp(vu, "PARTNER_NODE_CONNECTED", actor="admin", meta={"node_id": "N1"})
 n3 = bot.award_verified_xp(vu, "PARTNER_NODE_30D", actor="admin", meta={"node_id": "N1"})
@@ -776,7 +776,7 @@ check("ЦФА без actor=admin — 0", bot.award_verified_xp(vu, "CFA_ISSUED")
 check("ЦФА от админа начисляется", bot.award_verified_xp(vu, "CFA_CALL", actor="admin") == 30)
 check("verified XP не пишется в дневной лимит кнопок", bot.xp_today(700020) == 0)
 check("xp_log ведётся и не пуст", len(vp["xp_log"]) > 0)
-expected_xp = base_xp + 60 + 100 + 10 + 10 + 20 + 80 + 200 + 30
+expected_xp = base_xp + 100 + 150 + 15 + 15 + 20 + 100 + 200 + 30
 check("итоговый XP сходится", vp["xp"] == expected_xp, f"было {vp['xp']}, ждали {expected_xp}")
 
 # 13.11 revoke_xp: снятие с записью причины
@@ -956,7 +956,8 @@ bot.create_passport_if_not_exists(FakeUser(id=740001, full_name="Ждун"))
 t_club, mk = bot.build_club_view(740001)
 check("клуб: цены 5 108 и 15 108", "5 108 ₽" in t_club and "15 108 ₽" in t_club, t_club)
 check("клуб: 0 мест → лист ожидания", "мест пока нет" in t_club and kb_texts(mk)[0] == [bot.CLUB_JOIN_BUTTON])
-check("клуб: Основатель закрыт до 4 партнёров", "откроется, когда будет 4 партнёра" in t_club)
+check("клуб: Основатель закрыт, пока владелец не откроет", "откроются позже" in t_club)
+check("клуб: нет жёсткого «15 на партнёра»", "15 на" not in t_club)
 check("клуб: в паспорте есть кнопка City Code", bot.CLUB_INFO_BUTTON in kb_texts(bot.build_passport_view(740001)[1])[0])
 xp0 = bot.PASSPORTS[740001]["xp"]
 r1 = bot.club_join(FakeUser(id=740001, full_name="Ждун"))
@@ -974,16 +975,31 @@ check("очередь: Проводник первым", bot.waitlist_queue()[:2
 check("/waitlist: отчёт", "id 740002" in bot.waitlist_report())
 
 # 15.3 места открыты → оплатил → ушёл из очереди
-bot.CLUB_SEATS_OPEN = 60
-check("4 партнёра → Основатель открыт", bot.founders_open() and "откроется" not in bot.build_club_view(740001)[0])
-check("свободные места = 60 − участники", bot.seats_free() == 60 - bot.active_members_count())
+async def t_seats_cmd():
+    adm = FakeUser(id=int(TEST_ADMIN_ID))
+    m = FakeMessage(text="/seats 45"); m.from_user = adm
+    await bot.cmd_seats(m)
+    m2 = FakeMessage(text="/founders on"); m2.from_user = adm
+    await bot.cmd_founders(m2)
+    m3 = FakeMessage(text="/seats 99"); m3.from_user = FakeUser(id=1)  # не админ
+    await bot.cmd_seats(m3)
+    return m.last_text(), m2.last_text(), m3.sent
+seats_txt, f_txt, not_admin = asyncio.run(t_seats_cmd())
+check("/seats 45: мест 45, без перезапуска", bot.club_seats() == 45 and "Открыто мест: 45" in seats_txt, seats_txt)
+check("/seats: первым в очереди написали", bot.PASSPORTS[740002].get("seat_offered_at") and "740002" in seats_txt, seats_txt)
+check("/seats: чужим нельзя", not not_admin and bot.club_seats() == 45)
+check("/founders on → Основатель открыт", bot.founders_open() and "открыты" in f_txt and "позже" not in bot.build_club_view(740001)[0])
+check("свободные места = 45 − участники", bot.seats_free() == 45 - bot.active_members_count())
+check("настройки мест пишутся в состояние", bot.SETTINGS == {"seats_open": 45, "founders_open": True})
 async def t_paid_wait():
     m = FakeMessage(text="/paid 740002 basic")
     m.from_user = FakeUser(id=int(TEST_ADMIN_ID))
     await bot.cmd_paid(m)
 asyncio.run(t_paid_wait())
 check("оплатил → не в очереди", 740002 not in bot.waitlist_queue() and bot.waitlist_position(740001) is not None)
-bot.CLUB_SEATS_OPEN = 0
+check("оплатил → отметки очереди сняты", bot.PASSPORTS[740002]["club_applied_at"] is None and "seat_offered_at" not in bot.PASSPORTS[740002])
+bot.SETTINGS.clear()
+check("без /seats берём CLUB_SEATS_OPEN", bot.club_seats() == bot.CLUB_SEATS_OPEN == 0 and not bot.founders_open())
 
 # 15.4 срок хранения: 1 год без действий → удаляем; плативший → обезличенный след 5 лет
 future = datetime.now() + timedelta(days=800)
