@@ -6,8 +6,8 @@ Google-таблице: бот загружает их в память и обн�
 
 Бот в Telegram: [@SevastopolAiBot](https://t.me/SevastopolAiBot)
 
-- 🚀 [START_HERE.md](START_HERE.md) — мой пошаговый запуск с нуля: токен, Colab, VPS, Cloudflare Worker и чек-лист проверки
-- 📦 [FILL_PACK.md](FILL_PACK.md) — готовые блоки данных для вставки в Google-таблицу по колонкам
+- 🚀 [START_HERE.md](START_HERE.md) — моя пошаговая памятка запуска с нуля: токен, Colab, сервер, Cloudflare Worker и чек-лист проверки
+- 📦 [FILL_PACK.md](FILL_PACK.md) — мои готовые блоки данных для вставки в Google-таблицу по колонкам
 - 🔐 [SECURITY.md](SECURITY.md) — где я храню токены, как использую права 600 и как делаю ротацию секретов
 
 ## Структура репозитория
@@ -19,27 +19,21 @@ Google-таблице: бот загружает их в память и обн�
 | `Sevastopol AI Архив событий.xlsx` | Прошедшие события — я храню их на память, бот их не читает |
 | `requirements.txt` | Зависимости моего бота |
 | `.env.example` | Шаблон настроек: я копирую его в `.env` и ставлю права `600` |
-| `install.sh` | Установка и обновление на сервере одной командой |
+| `install.sh` | Моя установка и обновление на сервере одной командой |
 | `Dockerfile`, `.dockerignore` | Запуск моего бота в контейнере |
-| `START_HERE.md` | Моя инструкция по запуску для владельца бота |
+| `START_HERE.md` | Моя памятка по быстрому запуску бота |
 | `FILL_PACK.md` | Что и как я вставляю в Google-таблицу вручную |
 | `SECURITY.md` | Как я храню и ротирую секреты |
 | `tests/test_carousels.py` | Мои тесты: карусели, колбэки, XP, лимиты Telegram, состояние и ENV |
 | `tools/check_base.py` | Моя проверка базы: дубликаты, координаты, лимиты Telegram и даты |
 | `tools/setup_env.py` | Мастер первого запуска: создаёт `.env` и проверяет токен |
 | `notebooks/SevastopolAI_bot.ipynb` | Colab-ноутбук — я запускаю бота одной ячейкой |
-| `suggest.html` | Моя веб-форма «✍️ Предложить место» на GitHub Pages |
-| `.nojekyll` | Отключает Jekyll на GitHub Pages, чтобы страница отдавалась как есть |
+| `suggest.html` | Моя веб-форма «✍️ Предложить место» |
 | `worker/` | Мой Cloudflare Worker, который принимает заявки с формы |
 
-Парсер каналов (`events/`, `notebooks/SevastopolAI_parser.ipynb`,
-`tests/test_forwarder.py`) я убрал из репозитория: он работал от личного
-аккаунта, к этому боту отношения не имел и требовал отдельный набор секретов.
-Скрипты разового наполнения базы (`tools/add_*.py`, `tools/fill_coords.py`,
-`tools/rebuild_zip.py`) и `AUDIT_REPORT.md` я тоже убрал — теперь я правлю
-данные прямо в Google-таблице. Лист «События» я заполняю вручную, прошедшие
-события лежат в `Sevastopol AI Архив событий.xlsx`. Кнопка «📰 Новости города»
-осталась: она ведёт на канал из `NEWS_CHANNEL_URL`.
+Данные я правлю прямо в рабочей Google-таблице. Лист «События» я заполняю
+вручную, а прошедшие события переношу в `Sevastopol AI Архив событий.xlsx`.
+Кнопка «📰 Новости города» ведёт на мой канал из `NEWS_CHANNEL_URL`.
 
 ## Быстрый старт (локально)
 
@@ -75,7 +69,7 @@ Colab → 🔑 Secrets (`TG_TOKEN`, `ADMIN_ID`).
 
 ```python
 # ═══════════ Sevastopol AI — запуск бота одной ячейкой ═══════════
-ADMIN_ID = ""     # твой Telegram ID (узнать: @userinfobot) — для /admin и заявок с формы
+ADMIN_ID = ""     # мой Telegram ID (узнать: @userinfobot) — для /admin и заявок с формы
 
 import os, shutil, subprocess, sys
 
@@ -156,25 +150,25 @@ docker logs -f sevastopol-ai-bot
 
 ### Сервер одной командой (Ubuntu / Debian, без Docker)
 
-Скачиваю ZIP репозитория (Code → Download ZIP), закидываю на сервер, распаковываю и в папке проекта запускаю:
+Я скачиваю ZIP репозитория (Code → Download ZIP), закидываю на сервер, распаковываю и в папке проекта запускаю:
 
 ```bash
 sudo bash install.sh
 ```
 
-Установщик спросит `TG_TOKEN` и `ADMIN_ID`, а дальше всё делает сам:
+При первом запуске скрипт спрашивает `TG_TOKEN` и `ADMIN_ID`, а дальше всё настраивает сам:
 
-- код кладёт в `/opt/sevastopol-ai-bot` и ставит зависимости в `.venv`;
-- настройки пишет в `/etc/sevastopol-ai-bot.env` с правами 600;
-- паспорта и бэкапы хранит в `/var/lib/sevastopol-ai-bot`;
+- кладёт код в `/opt/sevastopol-ai-bot` и ставит зависимости в `.venv`;
+- записывает настройки в `/etc/sevastopol-ai-bot.env` с правами 600;
+- хранит паспорта и бэкапы в `/var/lib/sevastopol-ai-bot`;
 - создаёт службу systemd с `Restart=always`. Бот работает от отдельного пользователя без прав и сам поднимается после перезагрузки.
 
-Если положить старый `bot_state.json` рядом с `install.sh`, паспорта переедут.
+Если я переношу бота с другого места, кладу старый `bot_state.json` рядом с `install.sh` — паспорта переезжают автоматически.
 
-- **Обновление:** распаковать новый ZIP и снова выполнить `sudo bash install.sh`. Токен, паспорта и бэкапы останутся.
+- **Обновление:** я распаковываю новый ZIP и снова выполняю `sudo bash install.sh`. Токен, паспорта и бэкапы остаются.
 - **Без вопросов:** `sudo TG_TOKEN=… ADMIN_ID=… bash install.sh`.
 - **Логи:** `journalctl -u sevastopol-ai-bot -f`.
-- **Удаление:** `sudo bash install.sh --uninstall`. Данные в `/var/lib` останутся.
+- **Удаление:** `sudo bash install.sh --uninstall`. Данные в `/var/lib` остаются.
 
 ### PythonAnywhere / Railway / Render / Fly.io
 
@@ -197,17 +191,17 @@ sudo bash install.sh
 | `ADMIN_ID` | — (обязательно для админ-функций) | Мой ID: мне доступна `/admin`, сюда приходят предложения |
 | `SPREADSHEET_ID` | ID текущей базы | Google-таблица с моими данными |
 | `NEWS_CHANNEL_URL` | `https://t.me/Sevastopol_AI` | Канал для кнопки «📰 Новости города» |
-| `SUGGEST_FORM_URL` | страница `suggest.html` | Моя веб-форма «✍️ Предложить место» |
+| `SUGGEST_FORM_URL` | `suggest.html` на сайте | Моя веб-форма «✍️ Предложить место» |
 | `REFRESH_SECONDS` | 600 | Как часто я перечитываю таблицу |
 | `STATE_FILE` | `bot_state.json` | Где я храню XP-паспорта, рефералы и статистику |
 | `ENV_FILE` | — | Необязательно: путь к моему файлу настроек вместо `.env` |
 | `CLUB_SEATS_OPEN` | 0 | Сколько мест в City Code на старте. Дальше я меняю число прямо в боте командой `/seats N`, без перезапуска. 0 — мест нет, бот ведёт лист ожидания |
-| `CLUB_FOUNDERS_OPEN` | 0 | Продаются ли «Основатели» на старте. Дальше — `/founders on\|off` |
-| `CLUB_PRICE_BASIC` / `CLUB_PRICE_FOUNDER` | 5108 / 15108 | Цена года (₽), бот показывает её в /club |
-| `CITYCODE_GRANT_DAYS` / `CITYCODE_GRANT_QUOTA` | 365 / 30 | Бесплатный год за 7000 XP и сколько таких грантов в год |
-| `PRIVACY_URL` | `privacy.html` на сайте | Ссылка на политику данных в уведомлении |
-| `DATA_KEEP_DAYS` | 365 | Через сколько дней без действий удалять данные (как в политике) |
-| `BACKUP_DIR` / `BACKUP_KEEP` | `backups` / 14 | Куда класть ежедневный бэкап и сколько хранить. В Docker: `/data/backups` |
+| `CLUB_FOUNDERS_OPEN` | 0 | Открыт ли набор «Основателей» на старте. Дальше переключаю через `/founders on\|off` |
+| `CLUB_PRICE_BASIC` / `CLUB_PRICE_FOUNDER` | 5108 / 15108 | Цена года (₽), бот показывает её в `/club` |
+| `CITYCODE_GRANT_DAYS` / `CITYCODE_GRANT_QUOTA` | 365 / 30 | Бесплатный год за 7000 XP и сколько таких грантов я выдаю в год |
+| `PRIVACY_URL` | `privacy.html` на сайте | Ссылка на мою политику обработки данных в уведомлении |
+| `DATA_KEEP_DAYS` | 365 | Через сколько дней без активности удаляются данные (как в политике) |
+| `BACKUP_DIR` / `BACKUP_KEEP` | `backups` / 14 | Куда складывается ежедневный бэкап и сколько копий я храню. В Docker: `/data/backups` |
 
 Без `TG_TOKEN` бот печатает подсказку и завершается с кодом 2. Без `ADMIN_ID`
 бот работает, но пишет в лог предупреждение: `/admin` и отправка заявок с формы
@@ -257,7 +251,7 @@ python tools/check_base.py     # дубликаты, координаты, сс�
 ```
 
 Данные я пополняю руками через Google-таблицу, бот сам подхватывает изменения.
-Готовые блоки значений и пошаговая инструкция — в [FILL_PACK.md](FILL_PACK.md).
+Готовые блоки значений и пошаговая памятка — в [FILL_PACK.md](FILL_PACK.md).
 Файл `Sevastopol AI База.xlsx` в репозитории — только копия для истории: я не
 импортирую его поверх Google-таблицы, потому что в колонке «Меню Справочник»
 есть формулы `XLOOKUP`.
@@ -284,9 +278,7 @@ aiogram заменяются заглушками. Я проверяю каче�
 
 ## Форма предложений и Cloudflare Worker
 
-Я публикую `suggest.html` на GitHub Pages: Settings → Pages → Branch: `main`,
-folder `/`. Файл `.nojekyll` отключает сборку Jekyll, поэтому страница
-отдаётся как есть.
+Форма `suggest.html` размещена на сайте (`https://yurich-citycode.github.io/YuRichHUB/suggest.html`), а копия страницы также лежит в этом репозитории.
 
 Заявка из формы уходит в мой Cloudflare Worker (`worker/`), а Worker отправляет
 её мне в личку через Telegram Bot API на `ADMIN_ID`. Секреты я храню в Worker,
@@ -328,7 +320,7 @@ var WORKER_URL = "https://sevastopol-suggest.your-name.workers.dev";
 
 | Команда | Что делает |
 |---|---|
-| `/seats [N]` | Сколько мест открыто. Число меняется без перезапуска, и первым в листе ожидания бот сам пишет, что место есть |
+| `/seats [N]` | Сколько мест открыто. Число я меняю без перезапуска, и первым в листе ожидания бот сам пишет, что место есть |
 | `/founders on\|off` | Открыть или закрыть «Основателей» |
 | `/waitlist` | Лист ожидания клуба |
 | `/paid user_id basic\|founder [кто_пригласил]` | Человек оплатил год: +365 дней; пригласившему +120 XP и +30 дней |
