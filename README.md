@@ -19,6 +19,7 @@ Google-таблице: бот загружает их в память и обн�
 | `Sevastopol AI Архив событий.xlsx` | Прошедшие события — я храню их на память, бот их не читает |
 | `requirements.txt` | Зависимости моего бота |
 | `.env.example` | Шаблон настроек: я копирую его в `.env` и ставлю права `600` |
+| `install.sh` | Установка и обновление на сервере одной командой |
 | `Dockerfile`, `.dockerignore` | Запуск моего бота в контейнере |
 | `START_HERE.md` | Моя инструкция по запуску для владельца бота |
 | `FILL_PACK.md` | Что и как я вставляю в Google-таблицу вручную |
@@ -138,7 +139,7 @@ subprocess.run([sys.executable, "-u", "sevastopolaibot.py"], cwd=DIR, env=settin
 docker build -t sevastopol-ai-bot .
 
 sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
-sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=… STATE_FILE=/data/bot_state.json
+sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=… STATE_FILE=/data/bot_state.json BACKUP_DIR=/data/backups
 
 docker run -d --name sevastopol-ai-bot --restart unless-stopped \
   --env-file /etc/sevastopol-ai-bot.env \
@@ -153,49 +154,27 @@ docker logs -f sevastopol-ai-bot
 если контейнер пересоздать. Варианты с `-e TG_TOKEN=…` и секретами Docker я
 описал в [SECURITY.md](SECURITY.md).
 
-### systemd (VPS без Docker)
+### Сервер одной командой (Ubuntu / Debian, без Docker)
+
+Скачиваю ZIP репозитория (Code → Download ZIP), закидываю на сервер, распаковываю и в папке проекта запускаю:
 
 ```bash
-git clone https://github.com/Yurich-citycode/SevastopolAIbot.git /opt/sevastopol-ai-bot
-cd /opt/sevastopol-ai-bot
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-
-sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
-sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=…
+sudo bash install.sh
 ```
 
-Я создаю `/etc/systemd/system/sevastopol-ai-bot.service` с таким содержимым:
+Установщик спросит `TG_TOKEN` и `ADMIN_ID`, а дальше всё делает сам:
 
-```ini
-[Unit]
-Description=Sevastopol AI Bot
-After=network-online.target
-Wants=network-online.target
+- код кладёт в `/opt/sevastopol-ai-bot` и ставит зависимости в `.venv`;
+- настройки пишет в `/etc/sevastopol-ai-bot.env` с правами 600;
+- паспорта и бэкапы хранит в `/var/lib/sevastopol-ai-bot`;
+- создаёт службу systemd с `Restart=always`. Бот работает от отдельного пользователя без прав и сам поднимается после перезагрузки.
 
-[Service]
-WorkingDirectory=/opt/sevastopol-ai-bot
-EnvironmentFile=/etc/sevastopol-ai-bot.env
-ExecStart=/opt/sevastopol-ai-bot/.venv/bin/python -u sevastopolaibot.py
-Restart=always
-RestartSec=10
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
+Если положить старый `bot_state.json` рядом с `install.sh`, паспорта переедут.
 
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now sevastopol-ai-bot
-journalctl -u sevastopol-ai-bot -f      # логи
-```
-
-Я храню секреты в `EnvironmentFile` вне репозитория с правами 600. В код и в
-git они не попадают. Если ротирую токен, правлю файл и выполняю
-`systemctl restart sevastopol-ai-bot`.
+- **Обновление:** распаковать новый ZIP и снова выполнить `sudo bash install.sh`. Токен, паспорта и бэкапы останутся.
+- **Без вопросов:** `sudo TG_TOKEN=… ADMIN_ID=… bash install.sh`.
+- **Логи:** `journalctl -u sevastopol-ai-bot -f`.
+- **Удаление:** `sudo bash install.sh --uninstall`. Данные в `/var/lib` останутся.
 
 ### PythonAnywhere / Railway / Render / Fly.io
 
@@ -222,6 +201,13 @@ git они не попадают. Если ротирую токен, правл
 | `REFRESH_SECONDS` | 600 | Как часто я перечитываю таблицу |
 | `STATE_FILE` | `bot_state.json` | Где я храню XP-паспорта, рефералы и статистику |
 | `ENV_FILE` | — | Необязательно: путь к моему файлу настроек вместо `.env` |
+| `CLUB_SEATS_OPEN` | 0 | Сколько мест в City Code на старте. Дальше я меняю число прямо в боте командой `/seats N`, без перезапуска. 0 — мест нет, бот ведёт лист ожидания |
+| `CLUB_FOUNDERS_OPEN` | 0 | Продаются ли «Основатели» на старте. Дальше — `/founders on\|off` |
+| `CLUB_PRICE_BASIC` / `CLUB_PRICE_FOUNDER` | 5108 / 15108 | Цена года (₽), бот показывает её в /club |
+| `CITYCODE_GRANT_DAYS` / `CITYCODE_GRANT_QUOTA` | 365 / 30 | Бесплатный год за 7000 XP и сколько таких грантов в год |
+| `PRIVACY_URL` | `privacy.html` на сайте | Ссылка на политику данных в уведомлении |
+| `DATA_KEEP_DAYS` | 365 | Через сколько дней без действий удалять данные (как в политике) |
+| `BACKUP_DIR` / `BACKUP_KEEP` | `backups` / 14 | Куда класть ежедневный бэкап и сколько хранить. В Docker: `/data/backups` |
 
 Без `TG_TOKEN` бот печатает подсказку и завершается с кодом 2. Без `ADMIN_ID`
 бот работает, но пишет в лог предупреждение: `/admin` и отправка заявок с формы
@@ -321,7 +307,7 @@ var WORKER_URL = "https://sevastopol-suggest.your-name.workers.dev";
 
 Если там стоит заглушка `__WORKER_URL__` или Worker временно недоступен, форма
 переходит в резервный режим: предлагает скопировать текст и вставить его в
-бота. Я получаю такую заявку в личке, а пользователю начисляется +5 XP.
+бота. Я получаю такую заявку в личке. XP человек получает, когда я принимаю место (`/xp_place`, +100).
 Подробная инструкция по Cloudflare — в [worker/README.md](worker/README.md).
 
 ## Что умеет мой бот
@@ -334,6 +320,22 @@ var WORKER_URL = "https://sevastopol-suggest.your-name.workers.dev";
 - ✍️ «Предложить место» — моя веб-форма; заявки приходят мне через Worker.
 - 🛂 City Passport: XP за первый запуск, активность не чаще раза в день на действие и рефералов; уровни и ранги.
 - 📊 `/admin` — моя статистика: пользователи, паспорта, действия и свежесть кэша.
+- 🔑 City Code: `/club` и кнопка в паспорте — цена, места и «✋ Хочу в клуб». Пока мест нет, это лист ожидания (Проводники 800+ XP — первыми). Мне приходит уведомление.
+- 🗑 Данные: раз в сутки бот удаляет тех, кто не заходил больше года; у плативших оставляет обезличенный след оплаты на 5 лет. По просьбе человека — `/forget user_id`.
+- 💾 Бэкап: раз в сутки копия состояния в `BACKUP_DIR` (14 последних); `/backup` присылает файл мне в Telegram.
+
+### Мои команды владельца (полный список — `/help_admin`)
+
+| Команда | Что делает |
+|---|---|
+| `/seats [N]` | Сколько мест открыто. Число меняется без перезапуска, и первым в листе ожидания бот сам пишет, что место есть |
+| `/founders on\|off` | Открыть или закрыть «Основателей» |
+| `/waitlist` | Лист ожидания клуба |
+| `/paid user_id basic\|founder [кто_пригласил]` | Человек оплатил год: +365 дней; пригласившему +120 XP и +30 дней |
+| `/sources` | Откуда пришли люди (ссылки `?start=src_метка`) |
+| `/xp_place` +100, `/xp_route` +150, `/xp_fix` +15, `/xp_review` +15, `/checkin` +100, `/partner_node` +200 | XP за проверенные действия. Регулярный вкладчик набирает 7000 XP (City Code) примерно за 320–350 дней, а только кнопками это занимает около 2 лет |
+| `/forget user_id` | Удалить данные человека |
+| `/backup` | Прислать бэкап |
 
 ## Безопасность ⚠️
 

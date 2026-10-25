@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 bot_state.json
+backups/
 *.json.tmp
 
 # Python
