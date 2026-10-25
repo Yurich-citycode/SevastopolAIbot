@@ -138,7 +138,7 @@ subprocess.run([sys.executable, "-u", "sevastopolaibot.py"], cwd=DIR, env=settin
 docker build -t sevastopol-ai-bot .
 
 sudo install -m 600 /dev/null /etc/sevastopol-ai-bot.env
-sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=… STATE_FILE=/data/bot_state.json
+sudo nano /etc/sevastopol-ai-bot.env    # TG_TOKEN=… ADMIN_ID=… STATE_FILE=/data/bot_state.json BACKUP_DIR=/data/backups
 
 docker run -d --name sevastopol-ai-bot --restart unless-stopped \
   --env-file /etc/sevastopol-ai-bot.env \
@@ -222,6 +222,12 @@ git они не попадают. Если ротирую токен, правл
 | `REFRESH_SECONDS` | 600 | Как часто я перечитываю таблицу |
 | `STATE_FILE` | `bot_state.json` | Где я храню XP-паспорта, рефералы и статистику |
 | `ENV_FILE` | — | Необязательно: путь к моему файлу настроек вместо `.env` |
+| `CLUB_SEATS_OPEN` | 0 | Места в City Code: 15 × подписанных партнёров. 0 — мест нет, бот ведёт лист ожидания |
+| `CLUB_PRICE_BASIC` / `CLUB_PRICE_FOUNDER` | 5108 / 15108 | Цена года (₽), бот показывает её в /club |
+| `CITYCODE_GRANT_DAYS` / `CITYCODE_GRANT_QUOTA` | 365 / 30 | Бесплатный год за 7000 XP и сколько таких грантов в год |
+| `PRIVACY_URL` | `privacy.html` на сайте | Ссылка на политику данных в уведомлении |
+| `DATA_KEEP_DAYS` | 365 | Через сколько дней без действий удалять данные (как в политике) |
+| `BACKUP_DIR` / `BACKUP_KEEP` | `backups` / 14 | Куда класть ежедневный бэкап и сколько хранить. В Docker: `/data/backups` |
 
 Без `TG_TOKEN` бот печатает подсказку и завершается с кодом 2. Без `ADMIN_ID`
 бот работает, но пишет в лог предупреждение: `/admin` и отправка заявок с формы
@@ -334,6 +340,20 @@ var WORKER_URL = "https://sevastopol-suggest.your-name.workers.dev";
 - ✍️ «Предложить место» — моя веб-форма; заявки приходят мне через Worker.
 - 🛂 City Passport: XP за первый запуск, активность не чаще раза в день на действие и рефералов; уровни и ранги.
 - 📊 `/admin` — моя статистика: пользователи, паспорта, действия и свежесть кэша.
+- 🔑 City Code: `/club` и кнопка в паспорте — цена, места и «✋ Хочу в клуб». Пока мест нет, это лист ожидания (Проводники 800+ XP — первыми). Мне приходит уведомление.
+- 🗑 Данные: раз в сутки бот удаляет тех, кто не заходил больше года; у плативших оставляет обезличенный след оплаты на 5 лет. По просьбе человека — `/forget user_id`.
+- 💾 Бэкап: раз в сутки копия состояния в `BACKUP_DIR` (14 последних); `/backup` присылает файл мне в Telegram.
+
+### Мои команды владельца (полный список — `/help_admin`)
+
+| Команда | Что делает |
+|---|---|
+| `/waitlist` | Лист ожидания клуба |
+| `/paid user_id basic\|founder [кто_пригласил]` | Человек оплатил год: +365 дней; пригласившему +120 XP и +30 дней |
+| `/sources` | Откуда пришли люди (ссылки `?start=src_метка`) |
+| `/xp_place`, `/xp_route`, `/xp_fix`, `/xp_review`, `/checkin`, `/partner_node` | XP за проверенные действия |
+| `/forget user_id` | Удалить данные человека |
+| `/backup` | Прислать бэкап |
 
 ## Безопасность ⚠️
 
