@@ -1,64 +1,73 @@
-# Sevastopol Alive Maps — короткие команды вместо длинных.
-# Всё, что нужно: make data → make tiles → make up
+# Sevastopol Alive Maps — короткие команды.
+# Всё делается через Docker: локальный Python/make не нужен (make — только удобство).
+#
+#   ./start.sh   (Windows: start.bat)  — то же самое одной командой
 
+DC ?= docker compose
+BUILD := $(DC) --profile build run --rm --no-TTY tools
 DATA_DIR ?= data
 PY ?= python3
 
-.PHONY: help data zones fonts tiles up down logs ps clean check smoke
+.PHONY: help start data zones fonts tiles up down logs ps clean check smoke
 
 help:
 	@echo "Sevastopol Alive Maps"
 	@echo ""
-	@echo "  make data    скачать OSM-данные Крыма/Севастополя (≈39 МБ)"
-	@echo "  make zones   собрать живые зоны (парки/кафе/набережные) из PBF"
-	@echo "  make fonts   скачать шрифты для подписей на карте"
-	@echo "  make tiles   собрать тайлы через Planetiler (mbtiles)"
-	@echo "  make up      поднять весь стек: http://localhost:8080"
+	@echo "  make start   всё сразу: данные → зоны → шрифты → тайлы → запуск"
+	@echo "  make data    скачать OSM-данные Крыма/Севастополя (~39 МБ)"
+	@echo "  make zones   собрать живые зоны (парки/кафе/набережные)"
+	@echo "  make fonts   скачать шрифты для подписей"
+	@echo "  make tiles   собрать тайлы (Planetiler, 3-10 мин)"
+	@echo "  make up      поднять стек → http://localhost:8080"
 	@echo "  make down    остановить"
-	@echo "  make logs    логи всех сервисов"
-	@echo "  make check   проверить конфиги и код без запуска"
-	@echo "  make smoke   прогнать API через тестовый клиент (без Docker)"
-	@echo ""
-	@echo "  первый запуск:  make data zones fonts tiles && make up"
+	@echo "  make logs    логи"
+	@echo "  make check   проверить конфиги без запуска"
+	@echo "  make smoke   прогнать API тестом (без Docker)"
+
+start:
+	bash start.sh
+
+# ---------- подготовка данных (в контейнере, локальный Python не нужен) ----------
 
 data:
-	bash scripts/01-fetch-pbf.sh
+	@test -f $(DATA_DIR)/sevastopol.osm.pbf || $(BUILD) sh /scripts/01-fetch-pbf.sh
 
 zones:
-	$(PY) -m pip install -q -r scripts/requirements.txt
-	$(PY) scripts/02-build-zones.py $(DATA_DIR)/sevastopol.osm.pbf -o $(DATA_DIR)/zones.geojson
+	$(BUILD) python /scripts/02-build-zones.py /data/sevastopol.osm.pbf -o /data/zones.geojson
 
 fonts:
-	bash scripts/03-fetch-fonts.sh
+	@test -d $(DATA_DIR)/fonts || $(BUILD) sh /scripts/03-fetch-fonts.sh
 
 tiles:
 	@test -f $(DATA_DIR)/sevastopol.osm.pbf || (echo "сначала make data" && exit 1)
-	docker compose run --rm planetiler
+	$(DC) --profile build run --rm planetiler
+
+# ---------- стек ----------
 
 up:
-	docker compose up --build -d
-	@echo "→ http://localhost:8080"
+	$(DC) up -d --build
+	@echo "→ http://localhost:8080   (первый запуск: импорт графа 1-3 мин)"
 
 down:
-	docker compose down
+	$(DC) down
 
 logs:
-	docker compose logs -f --tail=120
+	$(DC) logs -f --tail=120
 
 ps:
-	docker compose ps
+	$(DC) ps
 
 clean:
-	docker compose down -v --remove-orphans
+	$(DC) down -v --remove-orphans
 
-# быстрая проверка без Docker: json/yaml/py-синтаксис
+# ---------- проверки без Docker ----------
+
 check:
 	$(PY) -c "import yaml" 2>/dev/null || $(PY) -m pip install -q pyyaml
 	$(PY) -c "import json;[json.load(open(f,encoding='utf-8')) for f in ['tiles/style.json','tiles/config.json']];print('json ok')"
 	$(PY) -c "import yaml;yaml.safe_load(open('docker-compose.yml',encoding='utf-8'));yaml.safe_load(open('graphhopper/config.yml',encoding='utf-8'));print('yaml ok')"
 	$(PY) -m compileall -q backend/app scripts && echo "python ok"
 
-# проверка API без Docker: подменяет GraphHopper заглушкой
 smoke:
 	$(PY) -c "import fastapi, httpx, shapely" 2>/dev/null || $(PY) -m pip install -q fastapi httpx shapely
 	$(PY) scripts/04-smoke-test.py

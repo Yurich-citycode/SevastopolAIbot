@@ -77,6 +77,23 @@ services:
       tileserver:
         condition: service_started
 
+  # ---------- «Мастерская»: подготовка данных (одноразовые шаги) ----------
+  #   docker compose --profile build run --rm tools sh /scripts/01-fetch-pbf.sh
+  #   docker compose --profile build run --rm tools python /scripts/02-build-zones.py \
+  #       /data/sevastopol.osm.pbf -o /data/zones.geojson
+  #   docker compose --profile build run --rm tools sh /scripts/03-fetch-fonts.sh
+  # Обычно это делает start.sh / start.ps1 или make data zones fonts.
+  tools:
+    profiles: ["build"]
+    build: ./scripts
+    environment:
+      DATA_DIR: /data
+      PBF_URL: ${PBF_URL:-https://download.geofabrik.de/russia/crimean-fed-district-latest.osm.pbf}
+      FONTS_URL: ${FONTS_URL:-https://github.com/openmaptiles/fonts/releases/download/v2.0/v2.0.zip}
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts:ro
+
   # ---------- Planetiler: генерация тайлов (одноразовый запуск) ----------
   #   docker compose run --rm planetiler
   planetiler:

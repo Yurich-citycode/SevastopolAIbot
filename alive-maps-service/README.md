@@ -13,29 +13,72 @@ Alive Maps  ──►  fast   : 12 мин · 950 м
 
 ---
 
-## Быстрый старт
+## Запуск
 
-Нужны: `docker` + `docker compose` (v2), `make`, ~10 ГБ свободного места, 6 ГБ RAM.
+Нужен только **Docker Desktop** (Windows/macOS) или Docker Engine (Linux).
+Больше ничего ставить не надо: данные, зоны, шрифты и тайлы готовятся
+в контейнерах.
+
+### Windows
+
+1. Поставь [Docker Desktop](https://www.docker.com/products/docker-desktop/),
+   перезагрузись, запусти его и дождись статуса **Engine running**.
+2. Скачай папку `alive-maps-service` целиком (или `git clone` репозитория).
+3. Двойной клик по **`start.bat`**.
+
+### macOS / Linux / WSL
 
 ```bash
-git clone <этот репозиторий> && cd alive-maps-service
-
-make data      # скачать OSM-данные Крыма/Севастополя (~39 МБ)
-make zones     # собрать «живые зоны» (парки/кафе/набережные) из PBF
-make fonts     # шрифты для подписей на карте
-make tiles     # собрать тайлы через Planetiler (несколько минут)
-
-make up        # поднять стек
-open http://localhost:8080
+cd alive-maps-service
+bash start.sh
 ```
 
-Первая команда `make up` соберёт образы и импортирует граф GraphHopper —
-это занимает несколько минут (в логах будет `[gh] первый запуск: импортирую …`).
-Дальше перезапуск мгновенный: граф лежит в `data/graph-cache`.
+### Что делает start.sh / start.bat
 
-Остановить: `make down`. Снести всё вместе с данными: `make clean`.
+1. проверяет, что Docker установлен и запущен;
+2. скачивает OSM-данные Севастополя (~39 МБ);
+3. собирает «живые зоны» (парки, кафе, набережные, история);
+4. качает шрифты для подписей;
+5. собирает тайлы Planetiler (3–10 минут);
+6. поднимает контейнеры и ждёт готовности GraphHopper (1–3 минуты);
+7. открывает http://localhost:8080.
 
----
+Повторный запуск ничего не перекачивает и поднимает стек за секунды.
+Остановить: `docker compose down` (данные останутся в `data/`).
+
+### Шаги по отдельности
+
+Если хочется контролировать процесс или запускать частями:
+
+```bash
+make data      # скачать OSM
+make zones     # собрать живые зоны
+make fonts     # шрифты
+make tiles     # тайлы (Planetiler)
+make up        # поднять стек
+make logs      # смотреть логи
+make down      # остановить
+```
+
+Всё то же самое напрямую, без `make`:
+
+```bash
+docker compose --profile build run --rm tools sh /scripts/01-fetch-pbf.sh
+docker compose --profile build run --rm tools python /scripts/02-build-zones.py \
+    /data/sevastopol.osm.pbf -o /data/zones.geojson
+docker compose --profile build run --rm tools sh /scripts/03-fetch-fonts.sh
+docker compose --profile build run --rm planetiler
+docker compose up -d --build
+```
+
+### Сколько ждать и сколько нужно
+
+| | |
+|---|---|
+| Первый запуск | 10–20 минут (скачивание + тайлы + импорт графа) |
+| Повторный запуск | 5–15 секунд |
+| Диск | ~2 ГБ на данные/тайлы/граф + образы Docker |
+| RAM | 6 ГБ (GraphHopper 2 ГБ + Planetiler 4 ГБ при сборке тайлов) |
 
 ## Что поднимается
 
@@ -173,21 +216,20 @@ curl -s localhost:8080/api/compare \
 
 ---
 
-## Требования и производительность
+## Производительность
 
-| Что | Сколько |
-|---|---|
-| Диск | ~2 ГБ на данные, тайлы, граф (плюс образы Docker) |
-| RAM | 6 ГБ (GraphHopper 2 ГБ + Planetiler 4 ГБ при сборке тайлов) |
-| Время первой сборки | скачивание ~1 мин, тайлы 3–10 мин, импорт графа 1–3 мин |
-| Ответ `/api/route` | десятки миллисекунд после прогрева, ответы кэшируются на 15 минут |
-
-Если мало памяти: уменьшить `GH_MEMORY` и `PLANETILER_MEMORY` в `.env`
-(планетилеру меньше 2 ГБ для города не хватит).
+Ответ `/api/route` — десятки миллисекунд после прогрева, ответы кэшируются на
+15 минут (`CACHE_TTL`). Если мало памяти — уменьшить `GH_MEMORY` и
+`PLANETILER_MEMORY` в `.env` (планетилеру меньше 2 ГБ для города не хватит).
 
 ---
 
 ## Если что-то не работает
+
+**Docker Desktop: «Engine stopped» / `docker info` падает**
+Docker Desktop не запущен или не хватило WSL2. Открой Docker Desktop,
+дождись статуса **Engine running**; на Windows включи WSL2
+(`wsl --install` в PowerShell от администратора, потом перезагрузка).
 
 **`GraphHopper: не найден файл данных /data/sevastopol.osm.pbf`**
 Не выполнен `make data`. Файл должен лежать в `./data/`.
