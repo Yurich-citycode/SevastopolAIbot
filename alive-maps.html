@@ -1852,6 +1852,20 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
       syncScheme();
       var glm = vectorLayer.getMaplibreMap ? vectorLayer.getMaplibreMap() : null;
       if (glm && glm.on) {
+        /* подписи по-русски: в схеме OpenMapTiles имя лежит в name, а стиль
+           по умолчанию склеивает латиницу с кириллицей — нам так не надо */
+        glm.on('load', function () {
+          try {
+            var layers = (glm.getStyle() && glm.getStyle().layers) || [];
+            for (var k = 0; k < layers.length; k++) {
+              var lay = layers[k];
+              if (lay.type !== 'symbol' || !lay.layout || !lay.layout['text-field']) continue;
+              glm.setLayoutProperty(lay.id, 'text-field',
+                ['coalesce', ['get', 'name:ru'], ['get', 'name'], ['get', 'name_en']]);
+            }
+          } catch (e) { }
+        });
+
         var errs = 0;
         glm.on('error', function () {
           errs++;
