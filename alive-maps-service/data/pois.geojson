@@ -1,0 +1,3569 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.542573,
+     44.610761
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520722,
+     44.609488
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524399,
+     44.610127
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.528082,
+     44.604957
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.559295,
+     44.587467
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.519841,
+     44.60602
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.478666,
+     44.588917
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кофе в Окнах",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.458579,
+     44.597698
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Море",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.45472,
+     44.608534
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мыс Фиолент",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.484844,
+     44.505011
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Царское село",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.48658,
+     44.507791
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Философия",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.486418,
+     44.505425
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Батя Жарит",
+    "kind": "cafe",
+    "category": "Доставки",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.481765,
+     44.598475
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Гастрокондитерская Т.Д.",
+    "kind": "cafe",
+    "category": "Доставки",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.508067,
+     44.584912
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.527425,
+     44.559115
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.505325,
+     44.603868
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.494704,
+     44.59208
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.48052,
+     44.600872
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.488768,
+     44.598612
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.457304,
+     44.577933
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.512293,
+     44.594113
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520931,
+     44.603064
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.461215,
+     44.573338
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.458667,
+     44.596842
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.434317,
+     44.59135
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5323,
+     44.594623
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.456672,
+     44.592176
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.460645,
+     44.588519
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.526944,
+     44.604914
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.52267,
+     44.571037
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518541,
+     44.579523
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523885,
+     44.567484
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.559751,
+     44.587857
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.46206,
+     44.590191
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.529311,
+     44.55208
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.438803,
+     44.584242
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.544781,
+     44.60688
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.437528,
+     44.594796
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.512166,
+     44.587159
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.507412,
+     44.579538
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.415534,
+     44.567675
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.526799,
+     44.562476
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Т.Д.",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.562014,
+     44.594945
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520939,
+     44.613853
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523534,
+     44.602887
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.521972,
+     44.613565
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.55197,
+     44.592833
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520751,
+     44.574948
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518281,
+     44.57941
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.51872,
+     44.608433
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.439883,
+     44.584259
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.458058,
+     44.591411
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.484868,
+     44.589937
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Томби",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.538386,
+     44.645009
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Aroma Coffee",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524675,
+     44.616897
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Aroma Bakery",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.458725,
+     44.597174
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Aroma Bakery",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.525108,
+     44.567145
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Aroma Coffee",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523467,
+     44.601588
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Коффишка",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.519566,
+     44.613165
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Coffeeteria",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.521777,
+     44.612943
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Деталика Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.434878,
+     44.589038
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Wisteria cafe",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.507652,
+     44.607925
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Wisteria cafe",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.4626,
+     44.597662
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.48504,
+     44.587206
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.517939,
+     44.583697
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.529292,
+     44.552112
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518546,
+     44.613428
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.459216,
+     44.597506
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Surf Coffee × More",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.522627,
+     44.605667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ВкусКрым",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.4661,
+     44.5856
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "О! Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.513005,
+     44.59198
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Coffee Bean",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520571,
+     44.606173
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Харизма и Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.519576,
+     44.610599
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Модное место",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.522863,
+     44.617365
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ProTesto",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520368,
+     44.612506
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Центральная Кофейня",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523075,
+     44.614135
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пенка",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.44354,
+     44.589576
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Бикицер-кафе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.537178,
+     44.645206
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Раки&эклеры",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520581,
+     44.609739
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "1905",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.52212,
+     44.605423
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Важный гусь",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.520844,
+     44.610415
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Lavanda",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.522839,
+     44.60448
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "кофеТома",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.598989,
+     44.614676
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Do.Bro Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.594119,
+     44.516504
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Do.Bro Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.529292,
+     44.552112
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Ёжики",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518546,
+     44.613428
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пиратская харчевня",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518264,
+     44.614083
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Баркас",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.514969,
+     44.614385
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "БлэкСи",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.515964,
+     44.612193
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Иль Вино",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.517483,
+     44.617035
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Гости",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.522853,
+     44.600784
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Старик Хинкалыч",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523268,
+     44.614828
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кочерга",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.46069,
+     44.589713
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Гудини",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.51791,
+     44.612564
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Марани",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.478345,
+     44.587388
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Loco",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.519996,
+     44.612672
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Амбар",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.52953,
+     44.55336
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Юность",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.513385,
+     44.579732
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Етти",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.486634,
+     44.59177
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Шашлычная № 1",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.470211,
+     44.585771
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Вояж",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.514053,
+     44.60235
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Крафт Фактор",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.465684,
+     44.585846
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Шикотан",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518725,
+     44.615331
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "БаринЪ",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.455635,
+     44.592218
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Тбилисити",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.459216,
+     44.597506
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Киото",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.491133,
+     44.591924
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Брискет",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.455956,
+     44.608397
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Снежинка",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.522192,
+     44.606527
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Шанхай",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518546,
+     44.613428
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Миска",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.527468,
+     44.597345
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "The Угол",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518675,
+     44.612278
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Челентано",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.518395,
+     44.613637
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Инберо",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.556443,
+     44.590926
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кур Крыло",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.514823,
+     44.58504
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Самса",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.495671,
+     44.571459
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Сан-Тай",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.462343,
+     44.571339
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пар и Дым",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.50183,
+     44.587598
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Макао",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.448398,
+     44.591785
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Goodwood",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.461829,
+     44.589895
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Ёжики",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.529375,
+     44.556299
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Медоборы",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.516187,
+     44.602421
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Медоборы",
+    "kind": "cafe",
+    "category": "Кондитерские",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.460958,
+     44.590225
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Барабуля Бар",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523755,
+     44.602206
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Asian Kitchen Bar",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.521972,
+     44.613565
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Грин Дог",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.460106,
+     44.58776
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кафетерий Меркурий",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.516826,
+     44.59215
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Паффин Пицца",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524184,
+     44.564776
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Бар тяжёлого рока",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.525704,
+     44.567503
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Супертяж",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524623,
+     44.566167
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Mangal",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.487099,
+     44.581588
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Магазин Готового Шашлыка",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.51441,
+     44.600968
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Лола Пицца",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.455635,
+     44.592218
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Вкусный Маяк",
+    "kind": "cafe",
+    "category": "Доставки",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.483052,
+     44.583887
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Манеки Неко",
+    "kind": "cafe",
+    "category": "Доставки",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.516455,
+     44.588564
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Море Доставит",
+    "kind": "cafe",
+    "category": "Доставки",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.419261,
+     44.561578
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Студия вкуса Манако",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.481296,
+     44.582132
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Царь-хлеб",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.519057,
+     44.587882
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Царь-хлеб",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.559646,
+     44.587349
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Царь-хлеб",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5039,
+     44.58228
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Kurtat",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.457525,
+     44.573311
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Из печи",
+    "kind": "cafe",
+    "category": "Пекарни",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.539508,
+     44.639028
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Добро Кофе",
+    "kind": "cafe",
+    "category": "Кофе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.536556,
+     44.627436
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мзиури",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.478639,
+     44.586703
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Рататуй",
+    "kind": "cafe",
+    "category": "Рестораны",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523361,
+     44.602031
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Бульон",
+    "kind": "cafe",
+    "category": "Кафе",
+    "sheet": "Где поесть",
+    "weight": 1.3,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.489818,
+     44.599691
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Фиолент",
+    "kind": "waterfront",
+    "category": "Закаты",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.479362,
+     44.512959
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Яшмовый Пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.507114,
+     44.503483
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Серебряный Пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.617038,
+     44.487941
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Золотой Пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.629869,
+     44.479852
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Инжир",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.637842,
+     44.468725
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Баунти",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.46846,
+     44.521853
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Набережная Балаклавы",
+    "kind": "park",
+    "category": "Прогулки",
+    "sheet": "Локации",
+    "weight": 1.55,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.599642,
+     44.500917
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Приморский бульвар",
+    "kind": "park",
+    "category": "Прогулки",
+    "sheet": "Локации",
+    "weight": 1.55,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523836,
+     44.617031
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Херсонес",
+    "kind": "park",
+    "category": "Прогулки",
+    "sheet": "Локации",
+    "weight": 1.55,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.490369,
+     44.610846
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Парк Победы",
+    "kind": "park",
+    "category": "Прогулки",
+    "sheet": "Локации",
+    "weight": 1.55,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.456324,
+     44.602876
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мыс Фиолент",
+    "kind": "waterfront",
+    "category": "Смотровые",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.493548,
+     44.502228
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Ласпинская смотровая",
+    "kind": "waterfront",
+    "category": "Смотровые",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.714012,
+     44.430924
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Байдарские ворота",
+    "kind": "waterfront",
+    "category": "Смотровые",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.782023,
+     44.406184
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Сапун-гора",
+    "kind": "waterfront",
+    "category": "Смотровые",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.585154,
+     44.555924
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Грот Дианы",
+    "kind": "lively",
+    "category": "Hidden Gems",
+    "sheet": "Локации",
+    "weight": 1.2,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.478403,
+     44.50985
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Кадыковский карьер",
+    "kind": "lively",
+    "category": "Hidden Gems",
+    "sheet": "Локации",
+    "weight": 1.2,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.568122,
+     44.516074
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Затерянный мир",
+    "kind": "lively",
+    "category": "Hidden Gems",
+    "sheet": "Локации",
+    "weight": 1.2,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.6427,
+     44.4636
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Скала Святого Явления",
+    "kind": "lively",
+    "category": "Hidden Gems",
+    "sheet": "Локации",
+    "weight": 1.2,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5058,
+     44.5029
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пляж «Парк Победы»",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.456871,
+     44.609259
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Хрустальный пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.516735,
+     44.616908
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пляж Учкуевка",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.536515,
+     44.644258
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пляж Любимовка",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.543911,
+     44.659856
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Пляж Омега",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.444116,
+     44.597638
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Песочный пляж (Песочная бухта)",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.483647,
+     44.606607
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Голубая бухта",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.409105,
+     44.555326
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Казачья бухта",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.402615,
+     44.566952
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Царский пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.481831,
+     44.508471
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мраморный пляж",
+    "kind": "waterfront",
+    "category": "Пляжи",
+    "sheet": "Локации",
+    "weight": 1.6,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.592308,
+     44.495616
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Графская пристань",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.526723,
+     44.616988
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Памятник затопленным кораблям",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524292,
+     44.618344
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Площадь Нахимова",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523904,
+     44.616658
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Исторический бульвар",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523915,
+     44.59666
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Башня Ветров",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.524059,
+     44.611004
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Владимирский собор",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5236,
+     44.610493
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Памятник Солдату и Матросу",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.514324,
+     44.615155
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мыс Хрустальный",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5315,
+     44.6155
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Мыс Айя",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.654537,
+     44.428371
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Херсонесский маяк",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.380907,
+     44.583227
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Крепость Чембало",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.599502,
+     44.49475
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Крепость Каламита",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.6089,
+     44.6027
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Балаклавская бухта",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.59414,
+     44.495234
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Свято-Георгиевский монастырь",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.509964,
+     44.505438
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Свято-Климентовский пещерный монастырь",
+    "kind": "historic",
+    "category": "Достопримечательности",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.607756,
+     44.60408
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Панорама «Оборона Севастополя 1854–1855»",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.523309,
+     44.595501
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Малахов курган",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.548097,
+     44.604508
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "35-я береговая батарея",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.406413,
+     44.558189
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Балаклавский подземный музейный комплекс",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.596484,
+     44.501043
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Михайловская батарея",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.52574,
+     44.628061
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Константиновская батарея",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.51243,
+     44.626945
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Музей Черноморского флота",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.525772,
+     44.613355
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Севастопольский морской аквариум-музей",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5224,
+     44.6169
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Дельфинарий в Артбухте",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.5264,
+     44.6122
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Античный театр Херсонеса",
+    "kind": "historic",
+    "category": "Музеи",
+    "sheet": "Локации",
+    "weight": 1.45,
+    "source": "base"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     33.492,
+     44.611
+    ]
+   }
+  }
+ ]
+}

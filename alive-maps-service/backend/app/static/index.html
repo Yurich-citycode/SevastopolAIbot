@@ -23,6 +23,7 @@
     -webkit-font-smoothing:antialiased; overflow:hidden;
   }
   .app{ display:grid; grid-template-columns:390px 1fr; height:100vh; height:100dvh; }
+  body.tg .app{ height: var(--tg-h, 100dvh); }
 
   /* ---------- панель ---------- */
   .panel{
@@ -161,6 +162,7 @@
   .legend i{ display:inline-block; width:18px; border-top:3px solid var(--lime); margin-right:7px; vertical-align:middle; }
   .legend i.dash{ border-top:2px dashed rgba(242,245,236,.65); }
   .legend i.zone{ border-top:0; height:9px; width:9px; background:rgba(198,244,50,.35); border-radius:2px; }
+  .legend i.own{ border-top:0; height:8px; width:8px; background:#fff; border-radius:50%; }
   .legend .lh{ font:700 8.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin-bottom:2px; }
 
   .note{
@@ -233,6 +235,7 @@
     <div id="map"></div>
     <div class="chips">
       <button class="chip" id="chipZones" aria-pressed="false">зоны</button>
+      <button class="chip" id="chipOwn" aria-pressed="false">мои места</button>
       <button class="chip" id="chipFast" aria-pressed="true">быстрый</button>
       <button class="chip" id="chipAlive" aria-pressed="true">живой</button>
       <button class="chip" id="chipCenter">к центру</button>
@@ -242,6 +245,7 @@
       <div><i></i>живой маршрут</div>
       <div><i class="dash"></i>быстрый маршрут</div>
       <div><i class="zone"></i>живые зоны</div>
+      <div><i class="own"></i>мои места</div>
     </div>
     <div class="note" id="note">
       <b>что происходит</b>
@@ -250,6 +254,7 @@
   </div>
 </div>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/static/vendor/maplibre-gl.js"></script>
 <script>
 (function () {
@@ -272,12 +277,50 @@
     res: null,
     geo: { fast: null, alive: null },
     zonesOn: false,
+    ownOn: false,
     showFast: true,
     showAlive: true,
     busy: false
   };
 
   var $ = function (sel) { return document.querySelector(sel); };
+
+  /* ---------------- Telegram Mini App ----------------
+     Один и тот же файл работает и в браузере, и внутри Telegram.
+     Если открыто из бота — растягиваемся на его вьюпорт и берём тему;
+     если в браузере — просто ничего не делаем. */
+  var TG = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+  var IS_TG = !!(TG && typeof TG.initData === 'string');
+
+  function initTelegram() {
+    if (!IS_TG) return;
+    try {
+      TG.ready();
+      TG.expand();
+      if (TG.setHeaderColor) TG.setHeaderColor('#0A0B09');
+      if (TG.setBackgroundColor) TG.setBackgroundColor('#0A0B09');
+      if (TG.disableVerticalSwipes) TG.disableVerticalSwipes();
+      document.body.classList.add('tg');
+      if (TG.viewportStableHeight) {
+        document.documentElement.style.setProperty('--tg-h', TG.viewportStableHeight + 'px');
+      }
+    } catch (e) { /* мини-апп не критичен для работы карты */ }
+  }
+
+  /* ---------------- ссылка из бота ----------------
+     ?from=44.6050,33.5150&to=44.6120,33.5330 — порядок как в Telegram: lat,lon */
+  function applyDeepLink() {
+    var q = new URLSearchParams(window.location.search || '');
+    var f = (q.get('from') || '').split(',');
+    var t = (q.get('to') || '').split(',');
+    if (f.length !== 2 || t.length !== 2) return false;
+    var aLat = parseFloat(f[0]), aLon = parseFloat(f[1]);
+    var bLat = parseFloat(t[0]), bLon = parseFloat(t[1]);
+    if (![aLat, aLon, bLat, bLon].every(function (n) { return isFinite(n); })) return false;
+    setPoint('A', aLon, aLat);
+    setPoint('B', bLon, bLat);
+    return true;
+  }
 
   /* ---------------- карта ---------------- */
   var map = new maplibregl.Map({
@@ -324,6 +367,35 @@
       paint: { 'line-color': 'rgba(198,244,50,.45)', 'line-width': 0.8 }
     });
 
+    /* мои точки из базы — то, чего нет у обычной карты */
+    map.addSource('own', { type: 'geojson', data: EMPTY });
+    map.addLayer({
+      id: 'own-dot',
+      type: 'circle',
+      source: 'own',
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-radius': 4.5,
+        'circle-color': '#F2F5EC',
+        'circle-stroke-color': '#0A0B09',
+        'circle-stroke-width': 1.5
+      }
+    });
+    map.addLayer({
+      id: 'own-label',
+      type: 'symbol',
+      source: 'own',
+      layout: {
+        visibility: 'none',
+        'text-field': ['get', 'name'],
+        'text-size': 11,
+        'text-offset': [0, 1.2],
+        'text-anchor': 'top',
+        'text-font': ['Noto Sans Regular']
+      },
+      paint: { 'text-color': '#F2F5EC', 'text-halo-color': '#0A0B09', 'text-halo-width': 1.4 }
+    });
+
     /* маршруты */
     map.addSource('fast', { type: 'geojson', data: EMPTY });
     map.addSource('alive', { type: 'geojson', data: EMPTY });
@@ -351,6 +423,7 @@
     });
 
     loadZones();
+    loadOwn();
   });
 
   map.on('click', function (e) {
@@ -550,6 +623,16 @@
     } catch (e) { /* без зон карта тоже работает */ }
   }
 
+  async function loadOwn() {
+    try {
+      var resp = await fetch('/api/pois');
+      if (!resp.ok) return;
+      var geojson = await resp.json();
+      var src = map.getSource('own');
+      if (src) src.setData(geojson);
+    } catch (e) { /* без своих точек тоже работает */ }
+  }
+
   /* ---------------- управление ---------------- */
   $('#goFast').addEventListener('click', function () { build('fast'); });
   $('#goAlive').addEventListener('click', function () { build('alive'); });
@@ -568,6 +651,15 @@
     var v = state.zonesOn ? 'visible' : 'none';
     if (map.getLayer('zones-fill')) map.setLayoutProperty('zones-fill', 'visibility', v);
     if (map.getLayer('zones-outline')) map.setLayoutProperty('zones-outline', 'visibility', v);
+  });
+
+  $('#chipOwn').addEventListener('click', function () {
+    state.ownOn = !state.ownOn;
+    this.setAttribute('aria-pressed', state.ownOn ? 'true' : 'false');
+    var v = state.ownOn ? 'visible' : 'none';
+    ['own-dot', 'own-label'].forEach(function (id) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+    });
   });
 
   $('#chipFast').addEventListener('click', function () {
@@ -604,6 +696,9 @@
 
   /* ---------------- старт ---------------- */
   (async function init() {
+    initTelegram();
+    var deepLink = false;
+    try { deepLink = applyDeepLink(); } catch (e) { deepLink = false; }
     try {
       var cfg = await (await fetch('/api/config')).json();
       if (cfg.center) CFG.center = cfg.center;
@@ -618,13 +713,17 @@
       if (cfg.zones && cfg.zones.error) {
         showError('Зоны не загружены: ' + escapeHtml(cfg.zones.error) + '. Собери их: <code>make zones</code>');
       }
+      if (cfg.own && cfg.own.count) {
+        $('#status').textContent += ' · моих мест: ' + cfg.own.count;
+      }
+      if (deepLink) build('both');
     } catch (e) {
       $('#status').textContent = 'backend не отвечает';
       showError('Бэкенд не отвечает. Проверь <code>docker compose logs backend</code>.');
     }
   })();
 
-  window.ALIVE = { state: state, map: map, build: build, setPoint: setPoint };
+  window.ALIVE = { state: state, map: map, build: build, setPoint: setPoint, tg: TG };
 })();
 </script>
 </body>
