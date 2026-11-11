@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sevastopol Alive Maps — живые маршруты</title>
+<meta name="description" content="Локальная карта Севастополя: маршруты, оптимизированные не по времени, а по живости — парки, набережные, кафе, архитектура.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B09'/%3E%3Cpath d='M8 23 L16 9 L24 23' fill='none' stroke='%23C6F432' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/vendor/maplibre-gl.css">
+<style>
+  :root{
+    --bg:#0A0B09; --card:#12140E; --panel:#0E100B;
+    --lime:#C6F432; --blue:#2E62FF;
+    --ink:#F2F5EC; --muted:rgba(242,245,236,.58); --dim:rgba(242,245,236,.34);
+    --line:rgba(198,244,50,.25); --line-soft:rgba(242,245,236,.12);
+    --sans:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  .app{ display:grid; grid-template-columns:390px 1fr; height:100vh; height:100dvh; }
+
+  /* ---------- панель ---------- */
+  .panel{
+    overflow-y:auto; padding:18px 18px 26px;
+    background:var(--bg);
+    background-image:
+      radial-gradient(560px 320px at 100% -6%, rgba(46,98,255,.16), transparent 62%),
+      radial-gradient(420px 260px at -10% 2%, rgba(198,244,50,.09), transparent 60%);
+    border-right:1px solid var(--line-soft);
+  }
+  .tag{
+    display:inline-block; background:var(--lime); color:#0A0B09;
+    font:700 9.5px/1.2 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+    padding:5px 8px; transform:rotate(-1.4deg);
+  }
+  h1{
+    font:800 26px/1.05 var(--sans); text-transform:uppercase; letter-spacing:-.01em;
+    margin:14px 0 10px;
+  }
+  h1 em{ font-style:normal; color:var(--lime); }
+  .lead{ font-size:12.5px; line-height:1.6; color:var(--muted); margin:0 0 18px; }
+  .lead b{ color:var(--ink); }
+
+  .sec{ margin-top:18px; }
+  .sec-head{
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+    font:700 10px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--lime);
+  }
+  .sec-head .rule{ flex:1; height:1px; background:var(--line); }
+  .sec-head .meta{ color:var(--dim); font-weight:400; letter-spacing:.08em; }
+
+  .pts{ display:grid; gap:8px; }
+  .pt{
+    display:flex; align-items:center; gap:9px;
+    background:var(--card); border:1px solid var(--line-soft);
+    padding:10px 11px; font:500 12.5px/1.3 var(--sans); color:var(--muted);
+  }
+  .pt b{
+    width:20px; height:20px; border-radius:50%; display:grid; place-items:center;
+    font:700 10px/1 var(--mono); flex:0 0 auto;
+  }
+  .pt.a b{ border:2px solid var(--lime); color:var(--lime); }
+  .pt.b b{ border:2px solid var(--blue); color:#9FB4FF; }
+  .pt span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pt.filled span{ color:var(--ink); }
+
+  .hint{ font-size:11.5px; line-height:1.5; color:var(--dim); margin-top:8px; }
+  .presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .preset{
+    background:transparent; border:1px solid var(--line-soft); color:var(--muted);
+    font:500 11px/1.2 var(--sans); padding:7px 9px; cursor:pointer;
+  }
+  .preset:hover{ color:var(--lime); border-color:var(--lime); background:rgba(198,244,50,.07); }
+
+  .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:11px 10px; cursor:pointer; border:1px solid var(--line-soft);
+    background:transparent; color:var(--ink); font:700 12px/1 var(--sans);
+    transition:background .16s, border-color .16s, color .16s;
+  }
+  .btn.fast{ border-color:rgba(242,245,236,.28); }
+  .btn.alive{ background:var(--lime); border-color:var(--lime); color:#0A0B09; }
+  .btn.alive:hover{ background:var(--blue); border-color:var(--blue); color:#fff; }
+  .btn.fast:hover{ border-color:var(--ink); }
+  .btn[disabled]{ opacity:.45; cursor:progress; }
+  .btn.wide{ grid-column:1 / -1; }
+  .btn.ghost{ border-style:dashed; color:var(--muted); font-weight:500; }
+
+  .slider-row{ display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .slider-row span{ font:500 9.5px/1 var(--mono); letter-spacing:.1em; color:var(--dim); text-transform:uppercase; white-space:nowrap; }
+  input[type=range]{
+    flex:1; -webkit-appearance:none; appearance:none; height:2px; background:var(--line-soft); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--lime); border:2px solid var(--bg); cursor:pointer;
+    box-shadow:0 0 12px rgba(198,244,50,.5);
+  }
+
+  .res{ display:grid; gap:8px; }
+  .rcard{
+    border:1px solid var(--line-soft); background:var(--card); padding:11px 12px;
+  }
+  .rcard.alive{ border-color:rgba(198,244,50,.65); box-shadow:0 0 0 1px rgba(198,244,50,.12); }
+  .rhead{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:5px; }
+  .rlabel{ font:700 9.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .rcard.alive .rlabel{ color:var(--lime); }
+  .rmain{ display:flex; align-items:baseline; gap:6px; }
+  .rt{ font:800 30px/.92 var(--sans); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  .rcard.alive .rt{ color:var(--lime); }
+  .ru{ font-size:12px; color:var(--muted); }
+  .rd{ margin-left:auto; text-align:right; font:500 10.5px/1.4 var(--mono); color:var(--muted); }
+
+  .bonuses{ list-style:none; margin:9px 0 0; padding:0; display:grid; gap:4px; }
+  .bonuses li{
+    display:flex; align-items:baseline; gap:7px; font-size:11.5px; color:var(--muted);
+  }
+  .bonuses li::before{ content:'◆'; color:var(--lime); font-size:8px; }
+  .bonuses li small{ margin-left:auto; color:var(--dim); font:500 9.5px/1 var(--mono); }
+
+  .delta{
+    margin-top:10px; padding:9px 11px; border-left:2px solid var(--lime);
+    background:rgba(198,244,50,.06); font-size:12px; line-height:1.5; color:var(--ink);
+  }
+  .err{
+    margin-top:10px; padding:11px; border:1px solid rgba(46,98,255,.5);
+    background:rgba(46,98,255,.08); font-size:12px; line-height:1.5; color:var(--ink);
+  }
+  .err b{ display:block; font:700 9.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase; color:#9FB4FF; margin-bottom:5px; }
+
+  .foot{
+    margin-top:20px; padding-top:11px; border-top:1px solid var(--line-soft);
+    display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    font:500 9px/1.4 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--dim);
+  }
+
+  /* ---------- карта ---------- */
+  .mapwrap{ position:relative; min-width:0; }
+  #map{ position:absolute; inset:0; }
+  .chips{ position:absolute; top:12px; right:12px; display:flex; gap:4px; z-index:5;
+    background:rgba(10,11,9,.78); border:1px solid var(--line-soft); border-radius:999px; padding:3px; }
+  .chip{
+    background:transparent; border:1px solid transparent; border-radius:999px;
+    color:var(--muted); font:500 9.5px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+    padding:7px 11px; cursor:pointer;
+  }
+  .chip:hover{ color:var(--lime); }
+  .chip[aria-pressed="true"]{ color:var(--lime); border-color:rgba(198,244,50,.5); background:rgba(198,244,50,.1); }
+
+  .legend{
+    position:absolute; left:12px; bottom:12px; z-index:5;
+    background:rgba(10,11,9,.86); border:1px solid var(--line-soft); border-radius:10px;
+    padding:9px 11px; display:grid; gap:5px; font-size:10.5px; color:var(--muted);
+  }
+  .legend i{ display:inline-block; width:18px; border-top:3px solid var(--lime); margin-right:7px; vertical-align:middle; }
+  .legend i.dash{ border-top:2px dashed rgba(242,245,236,.65); }
+  .legend i.zone{ border-top:0; height:9px; width:9px; background:rgba(198,244,50,.35); border-radius:2px; }
+  .legend .lh{ font:700 8.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin-bottom:2px; }
+
+  .note{
+    position:absolute; right:12px; bottom:12px; z-index:5; max-width:min(300px,52vw);
+    background:rgba(10,11,9,.86); border:1px solid var(--line-soft); border-left:2px solid var(--lime);
+    border-radius:8px; padding:9px 11px; font-size:11px; line-height:1.5; color:var(--muted);
+  }
+  .note b{ display:block; font:700 8.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin-bottom:4px; }
+
+  .maplibregl-ctrl-attrib{ display:none; }
+
+  @media (max-width:860px){
+    .app{ grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+    .panel{ border-right:0; border-bottom:1px solid var(--line-soft); max-height:52vh; }
+    .note{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="panel">
+    <span class="tag">Sevastopol AI · локально</span>
+    <h1>Не самый быстрый —<br><em>самый живой</em></h1>
+    <p class="lead">
+      Два пеших маршрута по одним и тем же улицам: <b>быстрый</b> — как обычно,
+      <b>живой</b> — через парки, набережные, кафе и историю. Всё считается
+      на своём сервере: свои тайлы, свой роутер, данные OpenStreetMap.
+    </p>
+
+    <div class="sec">
+      <div class="sec-head">01 / точки <span class="rule"></span><span class="meta" id="pickHint">клик по карте = A</span></div>
+      <div class="pts">
+        <div class="pt a" id="ptA"><b>A</b><span>начало — кликни по карте</span></div>
+        <div class="pt b" id="ptB"><b>B</b><span>финиш — второй клик</span></div>
+      </div>
+      <div class="hint">Клик по карте ставит A, второй клик — B. Дальше клики двигают A.</div>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-head">02 / маршрут <span class="rule"></span><span class="meta" id="modeMeta">—</span></div>
+      <div class="actions">
+        <button class="btn fast" id="goFast" disabled>Быстрый</button>
+        <button class="btn alive" id="goAlive" disabled>Живой</button>
+        <button class="btn ghost wide" id="goBoth" disabled>Посчитать оба сразу</button>
+      </div>
+      <div class="slider-row">
+        <span>слабее</span>
+        <input type="range" id="strength" min="0" max="2" step="0.1" value="1" aria-label="Сила живых зон">
+        <span>живее</span>
+      </div>
+      <div class="hint" id="strengthHint">Сила живых зон: ×1.0 — как задумано</div>
+    </div>
+
+    <div class="sec" id="resSec" hidden>
+      <div class="sec-head">03 / результат <span class="rule"></span><span class="meta" id="resMeta"></span></div>
+      <div class="res" id="res"></div>
+      <div id="delta"></div>
+      <div id="error"></div>
+    </div>
+
+    <div class="foot">
+      <span id="status">проверяю сервисы…</span>
+      <span>данные © OpenStreetMap</span>
+    </div>
+  </aside>
+
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="chips">
+      <button class="chip" id="chipZones" aria-pressed="false">зоны</button>
+      <button class="chip" id="chipFast" aria-pressed="true">быстрый</button>
+      <button class="chip" id="chipAlive" aria-pressed="true">живой</button>
+      <button class="chip" id="chipCenter">к центру</button>
+    </div>
+    <div class="legend">
+      <div class="lh">легенда</div>
+      <div><i></i>живой маршрут</div>
+      <div><i class="dash"></i>быстрый маршрут</div>
+      <div><i class="zone"></i>живые зоны</div>
+    </div>
+    <div class="note" id="note">
+      <b>что происходит</b>
+      <span id="noteText">Кликни две точки на карте — посчитаю оба маршрута по локальным данным.</span>
+    </div>
+  </div>
+</div>
+
+<script src="/static/vendor/maplibre-gl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var CFG = {
+    center: [33.5225, 44.6134],
+    zoom: 13.4,
+    presets: [
+      { label: 'Вокзал → Приморский', a: [33.5285, 44.5955], b: [33.5238, 44.6170] },
+      { label: 'Графская → Артбухта', a: [33.5267, 44.6170], b: [33.5205, 44.6140] },
+      { label: 'Ушакова → Малахов курган', a: [33.5238, 44.6006], b: [33.5481, 44.6045] },
+      { label: 'Парк Победы → Херсонес', a: [33.4558, 44.6031], b: [33.4904, 44.6108] }
+    ]
+  };
+
+  var state = {
+    A: null, B: null, pick: 'A',
+    strength: 1,
+    res: null,
+    geo: { fast: null, alive: null },
+    zonesOn: false,
+    showFast: true,
+    showAlive: true,
+    busy: false
+  };
+
+  var $ = function (sel) { return document.querySelector(sel); };
+
+  /* ---------------- карта ---------------- */
+  var map = new maplibregl.Map({
+    container: 'map',
+    style: '/style.json',
+    center: CFG.center,
+    zoom: CFG.zoom,
+    attributionControl: false,
+    minZoom: 9,
+    maxZoom: 18
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+
+  var pinA = new maplibregl.Marker({ color: '#C6F432' });
+  var pinB = new maplibregl.Marker({ color: '#2E62FF' });
+
+  var EMPTY = { type: 'FeatureCollection', features: [] };
+
+  map.on('load', function () {
+    /* живые зоны — заливка по типу */
+    map.addSource('zones', { type: 'geojson', data: EMPTY });
+    map.addLayer({
+      id: 'zones-fill',
+      type: 'fill',
+      source: 'zones',
+      layout: { visibility: 'none' },
+      paint: {
+        'fill-color': [
+          'match', ['get', 'kind'],
+          'park', '#C6F432',
+          'waterfront', '#2E62FF',
+          'historic', '#F5A524',
+          'cafe', '#FF5C8A',
+          '#9AA0FF'
+        ],
+        'fill-opacity': 0.16
+      }
+    });
+    map.addLayer({
+      id: 'zones-outline',
+      type: 'line',
+      source: 'zones',
+      layout: { visibility: 'none' },
+      paint: { 'line-color': 'rgba(198,244,50,.45)', 'line-width': 0.8 }
+    });
+
+    /* маршруты */
+    map.addSource('fast', { type: 'geojson', data: EMPTY });
+    map.addSource('alive', { type: 'geojson', data: EMPTY });
+
+    map.addLayer({
+      id: 'alive-glow',
+      type: 'line',
+      source: 'alive',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': 'rgba(198,244,50,.28)', 'line-width': 14, 'line-blur': 8 }
+    });
+    map.addLayer({
+      id: 'fast-line',
+      type: 'line',
+      source: 'fast',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': 'rgba(242,245,236,.75)', 'line-width': 2.5, 'line-dasharray': [2, 1.6] }
+    });
+    map.addLayer({
+      id: 'alive-line',
+      type: 'line',
+      source: 'alive',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#C6F432', 'line-width': 4 }
+    });
+
+    loadZones();
+  });
+
+  map.on('click', function (e) {
+    var lon = +e.lngLat.lng.toFixed(6);
+    var lat = +e.lngLat.lat.toFixed(6);
+    setPoint(state.pick, lon, lat);
+  });
+
+  /* ---------------- точки ---------------- */
+  function setPoint(which, lon, lat) {
+    state[which] = [lon, lat];
+    var marker = which === 'A' ? pinA : pinB;
+    marker.setLngLat([lon, lat]).addTo(map);
+
+    var box = $('#pt' + which);
+    box.classList.add('filled');
+    box.querySelector('span').textContent = lon.toFixed(5) + ', ' + lat.toFixed(5);
+
+    state.pick = which === 'A' ? 'B' : 'A';
+    updatePickHint();
+    refreshButtons();
+    clearResults();
+  }
+
+  function updatePickHint() {
+    $('#pickHint').textContent = (state.A && state.B) ? 'клик по карте = новая A'
+      : state.A ? 'клик по карте = B' : 'клик по карте = A';
+  }
+
+  function refreshButtons() {
+    var ready = !!(state.A && state.B) && !state.busy;
+    ['#goFast', '#goAlive', '#goBoth'].forEach(function (sel) {
+      $(sel).disabled = !ready;
+    });
+  }
+
+  function clearResults() {
+    state.res = null;
+    $('#resSec').hidden = true;
+    $('#error').innerHTML = '';
+    $('#delta').innerHTML = '';
+    setData('fast', EMPTY);
+    setData('alive', EMPTY);
+  }
+
+  function setData(id, data) {
+    state.geo[id] = data;
+    var src = map.getSource(id);
+    if (src) src.setData(data);
+  }
+
+  /* ---------------- запросы ---------------- */
+  function setBusy(on) {
+    state.busy = on;
+    refreshButtons();
+    $('#noteText').textContent = on
+      ? 'считаю маршруты на локальном GraphHopper…'
+      : 'Кликни две точки — посчитаю оба маршрута по локальным данным.';
+  }
+
+  function showError(text) {
+    $('#error').innerHTML = '<div class="err"><b>не получилось</b>' + text + '</div>';
+    $('#resSec').hidden = false;
+  }
+
+  async function callApi(path, body) {
+    var resp = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var data = null;
+    try { data = await resp.json(); } catch (e) { data = null; }
+    if (!resp.ok) {
+      var detail = (data && (data.detail || data.message)) || ('ошибка ' + resp.status);
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+    return data;
+  }
+
+  async function build(mode) {
+    if (!state.A || !state.B || state.busy) return;
+    setBusy(true);
+    $('#error').innerHTML = '';
+
+    try {
+      if (mode === 'both') {
+        var both = await callApi('/api/compare', { start: state.A, end: state.B });
+        state.res = both;
+        render(both);
+      } else {
+        var one = await callApi('/api/route', {
+          start: state.A, end: state.B, mode: mode, strength: state.strength
+        });
+        state.res = state.res || { fast: null, alive: null };
+        state.res[mode] = one;
+        render(state.res, mode);
+      }
+    } catch (e) {
+      showError(escapeHtml(e.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ---------------- отрисовка ---------------- */
+  function render(res, only) {
+    var alive = res.alive, fast = res.fast;
+
+    if (alive) setData('alive', alive.geojson);
+    if (fast) setData('fast', fast.geojson);
+    applyVisibility();
+
+    var html = '';
+    if (fast) html += card('fast', 'быстрый', fast);
+    if (alive) html += card('alive', 'живой', alive);
+    $('#res').innerHTML = html;
+    $('#resSec').hidden = !html;
+
+    var delta = res.delta;
+    if (delta) {
+      $('#delta').innerHTML = delta.same_route
+        ? '<div class="delta">Выводы: в этом месте живой маршрут совпал с быстрым — рядом нет зон, за которые стоит крюк. Попробуй другую пару точек или усиль зоны.</div>'
+        : '<div class="delta">Живой маршрут длиннее на <b>' + Math.abs(delta.time_min).toFixed(0) +
+          ' мин</b> и <b>' + Math.abs(delta.distance_m) + ' м</b>' +
+          (delta.time_min > 7 ? ' — многовато, ослабь зоны ползунком.' : ' — это и есть «пара минут за удовольствие».') +
+          '</div>';
+    } else {
+      $('#delta').innerHTML = '';
+    }
+
+    $('#resMeta').textContent = only === 'alive' ? 'живой' : only === 'fast' ? 'быстрый' : 'оба';
+    fitToRoutes();
+  }
+
+  function card(kind, label, data) {
+    var b = data.bonuses || [];
+    var bonuses = '';
+    if (b.length) {
+      bonuses = '<ul class="bonuses">' + b.slice(0, 6).map(function (item) {
+        return '<li>' + escapeHtml(item.name || item.kind_ru) +
+          (item.meters ? '<small>' + item.meters + ' м</small>' : '') + '</li>';
+      }).join('') + '</ul>';
+    }
+    return '<article class="rcard ' + kind + '">' +
+      '<div class="rhead"><span class="rlabel">' + label + '</span>' +
+      (data.cached ? '<span class="rlabel" style="color:var(--dim)">кэш</span>' : '') + '</div>' +
+      '<div class="rmain"><span class="rt">' + Math.max(1, Math.round(data.time_min)) + '</span>' +
+      '<span class="ru">мин</span>' +
+      '<span class="rd">' + fmtMeters(data.distance_m) + '</span></div>' +
+      bonuses +
+      (data.degraded ? '<div class="hint" style="margin-top:6px">зоны не применились — GraphHopper их не принял, маршрут по правилам улиц</div>' : '') +
+      '</article>';
+  }
+
+  function fmtMeters(m) {
+    return m >= 1000 ? (m / 1000).toFixed(1).replace('.', ',') + ' км' : Math.round(m) + ' м';
+  }
+
+  function applyVisibility() {
+    [['fast', state.showFast, ['fast-line']], ['alive', state.showAlive, ['alive-glow', 'alive-line']]].forEach(function (cfg) {
+      var visible = cfg[1] ? 'visible' : 'none';
+      cfg[2].forEach(function (layer) {
+        if (map.getLayer(layer)) map.setLayoutProperty(layer, 'visibility', visible);
+      });
+    });
+  }
+
+  function fitToRoutes() {
+    var coords = [];
+    ['alive', 'fast'].forEach(function (id) {
+      var geo = state.geo[id];
+      if (!geo || !geo.features || !geo.features.length) return;
+      var g = geo.features[0].geometry;
+      if (g && g.coordinates) coords = coords.concat(g.coordinates);
+    });
+    if (coords.length < 2) return;
+    var bounds = coords.reduce(function (acc, c) { return acc.extend(c); },
+      new maplibregl.LngLatBounds(coords[0], coords[0]));
+    map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: 60 }, duration: 600 });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  /* ---------------- зоны ---------------- */
+  async function loadZones() {
+    try {
+      var resp = await fetch('/api/zones');
+      if (!resp.ok) return;
+      var geojson = await resp.json();
+      var src = map.getSource('zones');
+      if (src) src.setData(geojson);
+    } catch (e) { /* без зон карта тоже работает */ }
+  }
+
+  /* ---------------- управление ---------------- */
+  $('#goFast').addEventListener('click', function () { build('fast'); });
+  $('#goAlive').addEventListener('click', function () { build('alive'); });
+  $('#goBoth').addEventListener('click', function () { build('both'); });
+
+  $('#strength').addEventListener('input', function () {
+    state.strength = parseFloat(this.value);
+    $('#strengthHint').textContent = state.strength === 0
+      ? 'Сила живых зон: 0 — живой равен быстрому'
+      : 'Сила живых зон: ×' + state.strength.toFixed(1);
+  });
+
+  $('#chipZones').addEventListener('click', function () {
+    state.zonesOn = !state.zonesOn;
+    this.setAttribute('aria-pressed', state.zonesOn ? 'true' : 'false');
+    var v = state.zonesOn ? 'visible' : 'none';
+    if (map.getLayer('zones-fill')) map.setLayoutProperty('zones-fill', 'visibility', v);
+    if (map.getLayer('zones-outline')) map.setLayoutProperty('zones-outline', 'visibility', v);
+  });
+
+  $('#chipFast').addEventListener('click', function () {
+    state.showFast = !state.showFast;
+    this.setAttribute('aria-pressed', state.showFast ? 'true' : 'false');
+    applyVisibility();
+  });
+
+  $('#chipAlive').addEventListener('click', function () {
+    state.showAlive = !state.showAlive;
+    this.setAttribute('aria-pressed', state.showAlive ? 'true' : 'false');
+    applyVisibility();
+  });
+
+  $('#chipCenter').addEventListener('click', function () {
+    map.easeTo({ center: CFG.center, zoom: CFG.zoom, duration: 500 });
+  });
+
+  /* пресеты */
+  var presetsBox = $('#presets');
+  CFG.presets.forEach(function (p) {
+    var btn = document.createElement('button');
+    btn.className = 'preset';
+    btn.textContent = p.label;
+    btn.addEventListener('click', function () {
+      setPoint('A', p.a[0], p.a[1]);
+      setPoint('B', p.b[0], p.b[1]);
+      state.pick = 'A';
+      updatePickHint();
+      build('both');
+    });
+    presetsBox.appendChild(btn);
+  });
+
+  /* ---------------- старт ---------------- */
+  (async function init() {
+    try {
+      var cfg = await (await fetch('/api/config')).json();
+      if (cfg.center) CFG.center = cfg.center;
+      var parts = [];
+      parts.push(cfg.zones && cfg.zones.count ? 'зон: ' + cfg.zones.count : 'зон нет');
+      parts.push(cfg.graphhopper && cfg.graphhopper.ok ? 'GraphHopper живой' : 'GraphHopper не отвечает');
+      parts.push(cfg.tiles_ok ? 'тайлы на месте' : 'тайлы не отвечают');
+      $('#status').textContent = parts.join(' · ');
+      if (!cfg.graphhopper || !cfg.graphhopper.ok) {
+        showError('GraphHopper ещё не готов — он импортирует данные при первом запуске. Подожди минуту и обнови страницу.');
+      }
+      if (cfg.zones && cfg.zones.error) {
+        showError('Зоны не загружены: ' + escapeHtml(cfg.zones.error) + '. Собери их: <code>make zones</code>');
+      }
+    } catch (e) {
+      $('#status').textContent = 'backend не отвечает';
+      showError('Бэкенд не отвечает. Проверь <code>docker compose logs backend</code>.');
+    }
+  })();
+
+  window.ALIVE = { state: state, map: map, build: build, setPoint: setPoint };
+})();
+</script>
+</body>
+</html>

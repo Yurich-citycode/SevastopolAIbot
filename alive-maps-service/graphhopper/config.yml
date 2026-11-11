@@ -1,0 +1,57 @@
+# GraphHopper 11.x — пеший профиль для Севастополя.
+#
+# Живые зоны (парки, кафе, архитектура, набережные) НЕ зашиты в этот конфиг:
+# бэкенд передаёт их в каждом запросе через custom_model.areas (см. backend/app/gh.py).
+# Так зоны можно менять, не переимпортируя граф.
+
+graphhopper:
+
+  datareader.file: /data/sevastopol.osm.pbf
+  graph.location: /data/graph-cache
+
+  # автомобильные магистрали пешеходу не нужны: граф меньше и чище
+  import.osm.ignored_highways: motorway,motorway_link,trunk
+
+  # значения, которые нужны базовой пешей модели и нашим правилам приоритета
+  # Ровно те значения, которые требует пешая модель GraphHopper 11.1
+  # (страна, доступ для пешеходов, MTB-рейтинг — часть встроенного foot.json).
+  # Если список неполный, импорт падает с 'Encoded values missing: ...'
+  graph.encoded_values: foot_access,foot_average_speed,foot_priority,foot_network,road_class,road_environment,road_access,surface,smoothness,track_type,hike_rating,osm_way_id,country,foot_road_access,mtb_rating
+
+  profiles:
+    - name: foot
+      # встроенная модель GraphHopper: тротуары и тропинки приятнее, чем шоссе
+      custom_model_files: [foot.json]
+
+  # CH/LM не включаем: с custom_model и areas маршруты считаются в гибком режиме,
+  # а городу такого размера хватает обычного A*.
+  profiles_ch: []
+  profiles_lm: []
+
+  routing.max_visited_nodes: 300000
+
+  # мелкие пешеходные сети (дворы, парковые дорожки) не выбрасываем
+  prepare.min_network_size: 20
+
+  graph.dataaccess.default_type: RAM_STORE
+
+  # если когда-нибудь понадобятся зоны из файлов — раскомментировать:
+  # custom_areas.directory: /data/areas
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      bind_host: 0.0.0.0
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: 0.0.0.0
+
+logging:
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: "%d{HH:mm:ss} %-5level %logger{18} - %msg%n"
