@@ -32,6 +32,8 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from dotenv import load_dotenv
 
+import alive_map
+
 # ────────────────────── конфигурация ──────────────────────
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -924,6 +926,10 @@ cache_task: asyncio.Task | None = None
 maintenance_task: asyncio.Task | None = None
 dp = Dispatcher()
 
+# живая карта: свои маршруты «быстрый» и «живой» из локального сервиса.
+# Регистрирую сразу после создания dp — до обработчиков, которые ловят всё подряд.
+alive_map.register(dp, get_places=get_places_from_sheet, pick=pick)
+
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="🏠 Главное меню"), KeyboardButton(text="💬 Связь")],
@@ -1213,6 +1219,7 @@ def get_main_inline_kb():
         inline_keyboard=[
             [InlineKeyboardButton(text="🍽 Где поесть", callback_data="food_menu"), InlineKeyboardButton(text="📍 Локации", callback_data="loc_menu")],
             [InlineKeyboardButton(text="📅 События", callback_data="events_menu"), InlineKeyboardButton(text="🗺 Маршруты", callback_data="routes_menu")],
+            [InlineKeyboardButton(text="🗺 Живая карта", callback_data="alive:panel")],
             [InlineKeyboardButton(text="📰 Новости города", url=NEWS_CHANNEL_URL)],
             [InlineKeyboardButton(text="✍️ Предложить место", url=SUGGEST_FORM_URL)],
         ]
