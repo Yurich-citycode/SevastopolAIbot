@@ -393,6 +393,9 @@
   /* ============ КАРТА ============ */
   .mapwrap{ position:relative; min-width:0; background:#070806; }
   #map{ position:absolute; inset:0; z-index:1; background:#070806; }
+  /* векторная подложка: чуть приглушаем, чтобы маршрут читался первым */
+  .leaflet-gl-layer{ filter: brightness(.8) saturate(.9); }
+  .leaflet-gl-layer, .leaflet-gl-layer *{ pointer-events:none !important; }
   #map::before{
     content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
     background:
@@ -543,7 +546,7 @@
     <div class="brand">
       <div class="sq"></div>
       <div class="name">Alive Maps</div>
-      <span class="ver mono">v0.3</span>
+      <span class="ver mono">v0.4</span>
     </div>
 
     <h1>Не самый<br>быстрый —<br><em>самый живой</em></h1>
@@ -627,7 +630,7 @@
     </section>
 
     <div class="foot">
-      <span class="mono">ДАННЫЕ © OPENSTREETMAP</span>
+      <span class="mono">ДАННЫЕ © OPENSTREETMAP<span id="attribExtra"></span></span>
       <a class="mono" href="https://t.me/SevastopolAiBot" target="_blank" rel="noopener">БОТ SEVASTOPOL AI →</a>
     </div>
 
@@ -1749,14 +1752,12 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   /* Тайлы. CARTO с некоторых пор отдаёт «API KEY REQUIRED» вместо карты,
      поэтому берём цепочку без ключа: тёмный Esri → OSM → зеркало OSM.
      Если провайдер молчит, первые ошибки тайлов переключают на следующий. */
+  /* Основная подложка — векторные тайлы OpenFreeMap: без ключа, без регистрации,
+     лимитов нет, данные OpenStreetMap. Ниже — запасные растровые провайдеры на
+     случай, если WebGL или CDN недоступны. */
+  var VSTYLE = 'https://tiles.openfreemap.org/styles/fiord';
+
   var TILES = [
-    {
-      /* OSM без ключа и без сюрпризов; invert + hue-rotate делают из него тёмную карту */
-      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      labels: null,
-      opts: { maxZoom: 19, attribution: 'тайлы и данные © OpenStreetMap' },
-      invert: true
-    },
     {
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
@@ -1764,6 +1765,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
       invert: false
     },
     {
+      /* tile.openstreetmap.org сюда не ставим: он отдаёт сторонним страницам 403 */
       url: 'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png',
       labels: null,
       opts: { subdomains: 'abc', maxZoom: 19, maxNativeZoom: 18, attribution: 'тайлы и данные © OpenStreetMap' },
@@ -1772,29 +1774,108 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   ];
 
   var tileLayer = null, tileLabels = null, tileSwitching = false;
+  var vectorLayer = null, maplibreLoading = false, maplibreFailed = false;
+  var maplibreQueue = [];
+  var baseKind = 'none';   /* vector | raster | scheme */
 
   function syncScheme() {
     var st = $('#lgStreets');
-    if (st) st.hidden = !!state.tilesOn;
+    if (st) st.hidden = (baseKind !== 'scheme');
+    var ex = $('#attribExtra');
+    if (ex) ex.textContent = baseKind === 'vector' ? ' · OFM © OPENMAPTILES' : (baseKind === 'raster' ? ' · ESRI / OSM' : '');
   }
 
-  function setTiles(i) {
-    syncScheme();
+  function dropBase() {
+    if (vectorLayer) { try { map.removeLayer(vectorLayer); } catch (e) { } vectorLayer = null; }
     if (tileLayer) { map.removeLayer(tileLayer); tileLayer = null; }
     if (tileLabels) { map.removeLayer(tileLabels); tileLabels = null; }
     host.classList.remove('tiles-invert');
-    if (!state.tilesOn) return;
+  }
+
+  /* MapLibre грузим лениво и только когда он реально нужен */
+  function ensureMaplibre(cb) {
+    if (window.maplibregl && window.L && window.L.maplibreGL) { cb(true); return; }
+    if (maplibreFailed) { cb(false); return; }
+    maplibreQueue.push(cb);
+    if (maplibreLoading) return;
+    maplibreLoading = true;
+    var done = false;
+    function finish(ok) {
+      if (done) return;
+      done = true;
+      maplibreLoading = false;
+      if (!ok) maplibreFailed = true;
+      var q = maplibreQueue; maplibreQueue = [];
+      for (var i = 0; i < q.length; i++) q[i](ok);
+    }
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+    document.head.appendChild(link);
+    var urls = [
+      'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js',
+      'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js'
+    ];
+    var idx = 0;
+    (function nextGl() {
+      if (idx >= urls.length) { finish(false); return; }
+      var s = document.createElement('script');
+      s.src = urls[idx++];
+      s.async = true;
+      s.onload = function () {
+        var plug = document.createElement('script');
+        plug.src = 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.21/leaflet-maplibre-gl.js';
+        plug.onload = function () { finish(!!(window.maplibregl && window.L && window.L.maplibreGL)); };
+        plug.onerror = function () { finish(false); };
+        document.head.appendChild(plug);
+      };
+      s.onerror = nextGl;
+      document.head.appendChild(s);
+    })();
+    setTimeout(function () { finish(false); }, 14000);
+  }
+
+  function addVectorBase() {
+    try {
+      vectorLayer = L.maplibreGL({ style: VSTYLE, pane: 'tilePane', padding: 0.08 });
+      vectorLayer.addTo(map);
+      baseKind = 'vector';
+      syncScheme();
+      var glm = vectorLayer.getMaplibreMap ? vectorLayer.getMaplibreMap() : null;
+      if (glm && glm.on) {
+        var errs = 0;
+        glm.on('error', function () {
+          errs++;
+          /* стиль или тайлы не поехали — молча уходим на растровые/свою схему */
+          if (errs >= 3 && baseKind === 'vector') { maplibreFailed = true; dropBase(); setTiles(0); }
+        });
+      }
+    } catch (e) {
+      maplibreFailed = true;
+      dropBase();
+      setTiles(0);
+    }
+  }
+
+  function setTiles(i) {
+    if (tileLayer) { map.removeLayer(tileLayer); tileLayer = null; }
+    if (tileLabels) { map.removeLayer(tileLabels); tileLabels = null; }
+    host.classList.remove('tiles-invert');
+    if (!state.tilesOn) { baseKind = 'scheme'; syncScheme(); return; }
     if (i >= TILES.length) {
       /* ни один провайдер не отдал тайлы — остаёмся на своей схеме */
       state.tilesOn = false;
       var chip = $('#toggleTiles');
       if (chip) chip.setAttribute('aria-pressed', 'false');
+      baseKind = 'scheme';
       syncScheme();
       return;
     }
 
     var p = TILES[i];
     host.classList.toggle('tiles-invert', !!p.invert);
+    baseKind = 'raster';
+    syncScheme();
 
     var okCount = 0, errCount = 0;
     tileLayer = L.tileLayer(p.url, p.opts);
@@ -1813,7 +1894,21 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
       tileLabels.addTo(map);
     }
   }
-  setTiles(0);
+
+  /* сначала пробуем векторную подложку, потом растровую, в конце — своя схема */
+  function useBase() {
+    dropBase();
+    if (!state.tilesOn) { baseKind = 'scheme'; syncScheme(); return; }
+    baseKind = 'pending';
+    syncScheme();
+    if (maplibreFailed) { setTiles(0); return; }
+    if (window.maplibregl && window.L && window.L.maplibreGL) { addVectorBase(); return; }
+    ensureMaplibre(function (ok) {
+      if (!state.tilesOn) { baseKind = 'scheme'; syncScheme(); return; }
+      if (ok) addVectorBase(); else setTiles(0);
+    });
+  }
+  useBase();
 
   /* схема города под маршрутом: рисуем сами из графа OSM,
      чтобы карта не зависела от чужих тайл-серверов */
@@ -2468,7 +2563,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     });
   }
   bindToggle('toggleGlow', 'glowOn', function () { drawGlow(); });
-  bindToggle('toggleTiles', 'tilesOn', function () { setTiles(0); });
+  bindToggle('toggleTiles', 'tilesOn', function () { useBase(); });
   bindToggle('togglePoi', 'poiOn', function () { if (state.res) drawRoutes(state.res, true); });
 
   $('#recenter').addEventListener('click', function () {
