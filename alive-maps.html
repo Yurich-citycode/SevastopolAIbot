@@ -1811,6 +1811,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     var link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+    link.onerror = function () { link.href = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css'; };
     document.head.appendChild(link);
     var urls = [
       'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js',
@@ -1823,11 +1824,19 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
       s.src = urls[idx++];
       s.async = true;
       s.onload = function () {
-        var plug = document.createElement('script');
-        plug.src = 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.21/leaflet-maplibre-gl.js';
-        plug.onload = function () { finish(!!(window.maplibregl && window.L && window.L.maplibreGL)); };
-        plug.onerror = function () { finish(false); };
-        document.head.appendChild(plug);
+        var plugs = [
+          'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.21/leaflet-maplibre-gl.js',
+          'https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.21/leaflet-maplibre-gl.js'
+        ];
+        var pi = 0;
+        (function nextPlug() {
+          if (pi >= plugs.length) { finish(false); return; }
+          var plug = document.createElement('script');
+          plug.src = plugs[pi++];
+          plug.onload = function () { finish(!!(window.maplibregl && window.L && window.L.maplibreGL)); };
+          plug.onerror = nextPlug;
+          document.head.appendChild(plug);
+        })();
       };
       s.onerror = nextGl;
       document.head.appendChild(s);
