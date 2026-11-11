@@ -33,12 +33,12 @@
 Репозиторий: **https://github.com/Yurich-citycode/SevastopolAIbot**
 
 Папка сервиса в репозитории:
-**https://github.com/Yurich-citycode/SevastopolAIbot/tree/arena/8d598d96-sevastopolaibot/alive-maps-service**
+**https://github.com/Yurich-citycode/SevastopolAIbot/tree/main/alive-maps-service**
 
 Скачать архивом (проще всего):
 
 ```
-https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-service-v1.7.zip
+https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-v1.0.zip
 ```
 
 Распакуй — внутри будет папка `alive-maps-service`. Дальше все команды
@@ -371,8 +371,8 @@ http://localhost:8080/api/config     → сколько зон загружен�
 | Что | Адрес |
 |---|---|
 | Репозиторий | https://github.com/Yurich-citycode/SevastopolAIbot |
-| Папка сервиса | https://github.com/Yurich-citycode/SevastopolAIbot/tree/arena/8d598d96-sevastopolaibot/alive-maps-service |
-| README сервиса (архитектура, API) | https://github.com/Yurich-citycode/SevastopolAIbot/blob/arena/8d598d96-sevastopolaibot/alive-maps-service/README.md |
-| Эта инструкция | https://github.com/Yurich-citycode/SevastopolAIbot/blob/arena/8d598d96-sevastopolaibot/alive-maps-service/SETUP.md |
-| Архив для скачивания | https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-service-v1.7.zip |
-| Одиночный HTML-демо (без установки) | https://cdn.jsdelivr.net/gh/Yurich-citycode/SevastopolAIbot@alive-maps-v0.5/alive-maps.html |
+| Папка сервиса | https://github.com/Yurich-citycode/SevastopolAIbot/tree/main/alive-maps-service |
+| README сервиса (архитектура, API) | https://github.com/Yurich-citycode/SevastopolAIbot/blob/main/alive-maps-service/README.md |
+| Эта инструкция | https://github.com/Yurich-citycode/SevastopolAIbot/blob/main/alive-maps-service/SETUP.md |
+| Архив для скачивания | https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-v1.0.zip |
+| Одиночный HTML-демо (без установки) | https://cdn.jsdelivr.net/gh/Yurich-citycode/SevastopolAIbot@alive-maps-v1.0/alive-maps.html |
