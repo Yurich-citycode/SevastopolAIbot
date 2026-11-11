@@ -4,7 +4,7 @@
 #   ./start.sh   (Windows: start.bat)  — то же самое одной командой
 
 DC ?= docker compose
-BUILD := $(DC) --profile build run --rm --no-TTY tools
+BUILD := $(DC) --profile build run --rm tools
 DATA_DIR ?= data
 PY ?= python3
 

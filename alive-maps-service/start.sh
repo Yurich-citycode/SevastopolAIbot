@@ -59,16 +59,22 @@ if command -v free >/dev/null 2>&1; then
   [ "${MEM_GB:-0}" -lt 6 ] && warn "у машины ${MEM_GB} ГБ RAM, комфортно с 6+ (может подтормаживать)"
 fi
 
-NOTTY="--no-TTY"
-case "$DC" in podman*) NOTTY="" ;; esac
-BUILD="$DC --profile build run --rm $NOTTY"
+# Одноразовый контейнер tools. Флаг TTY в разных версиях compose называется
+# по-разному (--no-TTY / -T / никак), поэтому пробуем оба варианта.
+run_tools() {
+  $DC --profile build run --rm tools "$@" && return 0
+  $DC --profile build run --rm -T tools "$@"
+}
 
 # ---------- 2. Данные ----------
 step "Данные OpenStreetMap для Севастополя (~39 МБ)"
 if [ -f data/sevastopol.osm.pbf ]; then
   ok "уже есть: $(du -h data/sevastopol.osm.pbf | cut -f1)"
 else
-  $BUILD tools sh /scripts/01-fetch-pbf.sh || die "не удалось скачать данные (нет интернета?)"
+  run_tools sh /scripts/01-fetch-pbf.sh || die "не удалось скачать данные.
+  Если дело в сети — скачай вручную:
+  https://download.geofabrik.de/russia/crimean-fed-district-latest.osm.pbf
+  и положи файл как data/sevastopol.osm.pbf, потом запусти снова."
   ok "скачано"
 fi
 
@@ -77,7 +83,7 @@ step "Живые зоны: парки, кафе, набережные, исто�
 if [ -f data/zones.geojson ] && [ data/zones.geojson -nt data/sevastopol.osm.pbf ]; then
   ok "уже есть ($(python3 -c "import json;print(len(json.load(open('data/zones.geojson'))['features']))" 2>/dev/null || echo '?') полигонов)"
 else
-  $BUILD tools python /scripts/02-build-zones.py /data/sevastopol.osm.pbf -o /data/zones.geojson \
+  run_tools python /scripts/02-build-zones.py /data/sevastopol.osm.pbf -o /data/zones.geojson \
     || die "не удалось собрать зоны"
   ok "собрано"
 fi
@@ -87,7 +93,7 @@ step "Шрифты для подписей на карте"
 if [ -d data/fonts ] && [ -n "$(ls -A data/fonts 2>/dev/null)" ]; then
   ok "уже есть"
 else
-  $BUILD tools sh /scripts/03-fetch-fonts.sh || warn "шрифты не скачались — карта будет без подписей (не критично)"
+  run_tools sh /scripts/03-fetch-fonts.sh || warn "шрифты не скачались — карта будет без подписей (не критично)"
 fi
 
 # ---------- 5. Тайлы ----------
