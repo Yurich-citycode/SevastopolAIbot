@@ -13,7 +13,10 @@ graphhopper:
   import.osm.ignored_highways: motorway,motorway_link,trunk
 
   # значения, которые нужны базовой пешей модели и нашим правилам приоритета
-  graph.encoded_values: foot_access,foot_average_speed,foot_priority,foot_network,road_class,road_environment,road_access,surface,smoothness,track_type,hike_rating,osm_way_id
+  # Ровно те значения, которые требует пешая модель GraphHopper 11.1
+  # (страна, доступ для пешеходов, MTB-рейтинг — часть встроенного foot.json).
+  # Если список неполный, импорт падает с 'Encoded values missing: ...'
+  graph.encoded_values: foot_access,foot_average_speed,foot_priority,foot_network,road_class,road_environment,road_access,surface,smoothness,track_type,hike_rating,osm_way_id,country,foot_road_access,mtb_rating
 
   profiles:
     - name: foot
