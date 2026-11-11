@@ -19,23 +19,32 @@ die()  { printf "\n%s✗ %s%s\n" "$RED" "$*" "$OFF"; exit 1; }
 
 say "${BOLD}Sevastopol Alive Maps${OFF} ${DIM}— локальная карта с живыми маршрутами${OFF}"
 
-# ---------- 1. Docker ----------
-step "Проверяю Docker"
-if ! command -v docker >/dev/null 2>&1; then
-  die "Docker не найден. Поставь Docker Desktop: https://www.docker.com/products/docker-desktop/
-   Windows: после установки перезагрузись и запусти start.bat"
-fi
-if docker compose version >/dev/null 2>&1; then
+# ---------- 1. Docker / Podman ----------
+step "Проверяю Docker (или Podman)"
+if [ -n "${DC_CMD:-}" ]; then
+  DC="$DC_CMD"
+elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   DC="docker compose"
+elif command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1; then
+  DC="podman compose"
 elif command -v docker-compose >/dev/null 2>&1; then
   DC="docker-compose"
 else
-  die "Не найден docker compose. Обнови Docker Desktop (нужна v2)."
+  die "Не найден ни Docker, ни Podman. Варианты:
+   1) Docker Desktop  https://www.docker.com/products/docker-desktop/
+   2) Podman Desktop  https://podman-desktop.io/downloads   (аналог, без лицензии Docker)
+   3) совсем без контейнеров — см. SETUP.md, вариант D"
 fi
-if ! docker info >/dev/null 2>&1; then
-  die "Docker установлен, но не запущен. Открой Docker Desktop и повтори."
+
+# движок должен быть запущен
+case "$DC" in
+  podman*) ENG=podman ;;
+  *)       ENG=docker ;;
+esac
+if ! $ENG info >/dev/null 2>&1; then
+  die "$ENG установлен, но не запущен. Запусти $ENG Desktop и повтори."
 fi
-ok "Docker на месте ($DC)"
+ok "готово: $DC"
 
 # сколько свободно памяти — предупредим, если мало
 if command -v free >/dev/null 2>&1; then
@@ -43,7 +52,9 @@ if command -v free >/dev/null 2>&1; then
   [ "${MEM_GB:-0}" -lt 6 ] && warn "у машины ${MEM_GB} ГБ RAM, комфортно с 6+ (может подтормаживать)"
 fi
 
-BUILD="$DC --profile build run --rm --no-TTY"
+NOTTY="--no-TTY"
+case "$DC" in podman*) NOTTY="" ;; esac
+BUILD="$DC --profile build run --rm $NOTTY"
 
 # ---------- 2. Данные ----------
 step "Данные OpenStreetMap для Севастополя (~39 МБ)"
