@@ -393,6 +393,12 @@
   /* ============ КАРТА ============ */
   .mapwrap{ position:relative; min-width:0; background:#070806; }
   #map{ position:absolute; inset:0; z-index:1; background:#070806; }
+  #map::before{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(115% 85% at 40% 36%, rgba(198,244,50,.05), rgba(0,0,0,0) 60%),
+      radial-gradient(70% 62% at 82% 84%, rgba(46,98,255,.06), rgba(0,0,0,0) 72%);
+  }
   #map .leaflet-tile{ filter:grayscale(.34) brightness(.9) contrast(1.05); }
   /* OSM-тайлы «наизнанку» — чтобы карта осталась тёмной в стиле City Code */
   #map.tiles-invert .leaflet-tile{
@@ -458,6 +464,7 @@
   .legend .lw{ width:20px; height:0; border-top:3px solid var(--lime); flex:0 0 auto; }
   .legend .lw.dash{ border-top:2px dashed rgba(242,245,236,.6); }
   .legend .lw.glow{ border-top:3px solid rgba(198,244,50,.35); }
+  .legend .lw.street{ border-top:2px solid #354A2C; }
 
   .mapnote{
     position:absolute; z-index:500; right:12px; bottom:34px;
@@ -536,7 +543,7 @@
     <div class="brand">
       <div class="sq"></div>
       <div class="name">Alive Maps</div>
-      <span class="ver mono">v0.2</span>
+      <span class="ver mono">v0.3</span>
     </div>
 
     <h1>Не самый<br>быстрый —<br><em>самый живой</em></h1>
@@ -633,6 +640,7 @@
     <div class="mapchips">
       <button class="mchip" id="toggleGlow" aria-pressed="true">слой живости</button>
       <button class="mchip" id="togglePoi" aria-pressed="true">точки</button>
+      <button class="mchip" id="toggleTiles" aria-pressed="true">подложка</button>
       <button class="mchip" id="recenter">к центру</button>
     </div>
 
@@ -641,6 +649,7 @@
       <div class="li"><i class="lw"></i> живой</div>
       <div class="li"><i class="lw dash"></i> быстрый</div>
       <div class="li"><i class="lw glow"></i> живые улицы</div>
+      <div class="li" id="lgStreets" hidden><i class="lw street"></i> улицы OSM</div>
     </div>
 
     <div class="mapnote" id="mapnote">
@@ -914,6 +923,15 @@ var AM = (function () {
       return i;
     }
 
+    /* ---- геометрия для схемы-подложки (рисуем сами, без тайлов) ---- */
+    var render = { coast: [], green: [], major: [], minor: [], walk: [] };
+
+    function geomPts(geom) {
+      var out = [];
+      for (var i = 0; i < geom.length; i++) out.push([geom[i].lat, geom[i].lon]);
+      return out;
+    }
+
     /* ---- улицы ---- */
     var edges = [], edgeMap = new Map(), wayCount = 0;
 
@@ -928,6 +946,10 @@ var AM = (function () {
 
       wayCount++;
       var g = el.geometry;
+      var cls = el.tags.highway;
+      var bucket = /^(primary|secondary|tertiary)(_link)?$/.test(cls) ? 'major'
+        : /^(footway|path|pedestrian|steps|cycleway)$/.test(cls) ? 'walk' : 'minor';
+      render[bucket].push(geomPts(g));
       for (var j = 0; j < g.length - 1; j++) {
         var a = g[j], b = g[j + 1];
         if (!a || !b) continue;
@@ -1000,6 +1022,7 @@ var AM = (function () {
       if (t.highway) continue;                             // улицы уже учтены отдельно
 
       if (t.natural === 'coastline') {
+        render.coast.push(geomPts(el2.geometry));
         var pts = samplePath(el2.geometry, 30);
         for (var c = 0; c < pts.length; c++) {
           pushPoi(pts[c].lat, pts[c].lon, 3, 1.0, '', true);
@@ -1013,6 +1036,7 @@ var AM = (function () {
         var isBeach = t.natural === 'beach';
         var kind2 = isBeach ? 3 : 0;
         var weight = isBeach ? 1.2 : 1.0;
+        if (!isBeach) render.green.push(geomPts(el2.geometry));
         var fill = fillPolygon(el2.geometry, isBeach ? 45 : 50, 1200);
         for (var f = 0; f < fill.length; f++) {
           pushPoi(fill[f].lat, fill[f].lon, kind2, weight, t.name || '', true);
@@ -1109,7 +1133,7 @@ var AM = (function () {
       n: n, lats: lats, lons: lons,
       edges: edges, adj: adj, E: E,
       cat: cat, edgeCat: edgeCat, calm: calm,
-      pois: pois, poiGrid: poiGrid,
+      pois: pois, poiGrid: poiGrid, render: render,
       cLat: cLat, cLon: cLon, cellM: CELL, meanLat: meanLat,
       stats: {
         streets: wayCount,
@@ -1683,7 +1707,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     alpha: 0.55,
     weights: { green: 1, life: 1, arch: 1, sea: 1, calm: 1 },
     graph: null, graphKey: '', res: null, src: null, dst: null,
-    active: 'alive', glowOn: true, poiOn: true, busy: false, timer: null, recompute: null,
+    active: 'alive', glowOn: true, poiOn: true, tilesOn: true, busy: false, timer: null, recompute: null,
     order: null, pinged: false
   };
 
@@ -1747,14 +1771,29 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     }
   ];
 
-  var tileIdx = 0, tileLayer = null, tileLabels = null, tileSwitching = false;
+  var tileLayer = null, tileLabels = null, tileSwitching = false;
+
+  function syncScheme() {
+    var st = $('#lgStreets');
+    if (st) st.hidden = !!state.tilesOn;
+  }
 
   function setTiles(i) {
-    if (i >= TILES.length) return;
-    var p = TILES[i];
+    syncScheme();
     if (tileLayer) { map.removeLayer(tileLayer); tileLayer = null; }
     if (tileLabels) { map.removeLayer(tileLabels); tileLabels = null; }
+    host.classList.remove('tiles-invert');
+    if (!state.tilesOn) return;
+    if (i >= TILES.length) {
+      /* ни один провайдер не отдал тайлы — остаёмся на своей схеме */
+      state.tilesOn = false;
+      var chip = $('#toggleTiles');
+      if (chip) chip.setAttribute('aria-pressed', 'false');
+      syncScheme();
+      return;
+    }
 
+    var p = TILES[i];
     host.classList.toggle('tiles-invert', !!p.invert);
 
     var okCount = 0, errCount = 0;
@@ -1762,7 +1801,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     tileLayer.on('tileload', function () { okCount++; });
     tileLayer.on('tileerror', function () {
       errCount++;
-      if (!tileSwitching && okCount === 0 && errCount >= 3 && i + 1 < TILES.length) {
+      if (!tileSwitching && okCount === 0 && errCount >= 3) {
         tileSwitching = true;
         setTimeout(function () { tileSwitching = false; setTiles(i + 1); }, 0);
       }
@@ -1776,8 +1815,15 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   }
   setTiles(0);
 
+  /* схема города под маршрутом: рисуем сами из графа OSM,
+     чтобы карта не зависела от чужих тайл-серверов */
+  map.createPane('bp');
+  map.getPane('bp').style.zIndex = 150;
+  var bpRenderer = L.canvas({ padding: 0.5, pane: 'bp' });
+
   var glowRenderer = L.canvas({ padding: 0.4 });
 
+  var layerBlueprint = L.layerGroup().addTo(map);
   var layerGlow = L.layerGroup().addTo(map);
   var layerFast = L.layerGroup().addTo(map);
   var layerAlive = L.layerGroup().addTo(map);
@@ -2148,6 +2194,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
         state.graphKey = key;
         log('✓ ' + fmtInt(g.stats.streets) + ' улиц · ' + fmtInt(g.stats.nodes) + ' узлов · ' +
           fmtInt(g.stats.pois) + ' живых точек');
+        drawBlueprint(g);
         drawGlow();
       } else {
         log('✓ сеть улиц уже в памяти');
@@ -2276,6 +2323,32 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     $('#mapnoteText').textContent = txt;
   }
 
+  /* ---------------- схема города (вместо тайлов) ---------------- */
+  function drawBlueprint(g) {
+    layerBlueprint.clearLayers();
+    if (!g || !g.render) return;
+    try { drawBlueprintInner(g.render); } catch (e) { if (window.console) console.warn('blueprint', e); }
+  }
+
+  function drawBlueprintInner(r) {
+    var base = { pane: 'bp', renderer: bpRenderer, interactive: false, lineJoin: 'round', lineCap: 'round' };
+
+    function add(kind, data, style) {
+      if (!data || !data.length) return;
+      var opts = Object.assign({}, base, style);
+      if (kind === 'poly') L.polygon(data, opts).addTo(layerBlueprint);
+      else L.polyline(data, opts).addTo(layerBlueprint);
+    }
+
+    /* зелень — лёгкая заливка, чтобы читались парки */
+    add('poly', r.green.map(function (ring) { return [ring]; }),
+      { color: '#22391C', weight: 1, opacity: 0.9, fillColor: '#0E1D0B', fillOpacity: 0.9 });
+    add('line', r.walk, { color: '#182014', weight: 1, opacity: 0.85, dashArray: '2 3' });
+    add('line', r.minor, { color: '#1F2A1C', weight: 1.5, opacity: 0.9 });
+    add('line', r.major, { color: '#354A2C', weight: 3, opacity: 0.9 });
+    add('line', r.coast, { color: '#1F517F', weight: 1.6, opacity: 0.95 });
+  }
+
   /* ---------------- отрисовка маршрутов ---------------- */
   function drawRoutes(res, noFit) {
     layerFast.clearLayers();
@@ -2395,6 +2468,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     });
   }
   bindToggle('toggleGlow', 'glowOn', function () { drawGlow(); });
+  bindToggle('toggleTiles', 'tilesOn', function () { setTiles(0); });
   bindToggle('togglePoi', 'poiOn', function () { if (state.res) drawRoutes(state.res, true); });
 
   $('#recenter').addEventListener('click', function () {
