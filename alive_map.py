@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any, Callable
 
 import requests
@@ -29,11 +30,46 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT = 20.0
 
+# где искать сервис, если адрес не задан руками.
+# Порядок важен: бот может жить в Docker, тогда «localhost» — это он сам,
+# а сервис на хосте виден как host.docker.internal; а если сервис поднят
+# в той же docker-сети — по имени сервиса.
+CANDIDATES = (
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://host.docker.internal:8080",
+    "http://alive-maps-service:8080",
+)
+
+_resolved: str | None = None
+_resolved_at: float = 0.0
+
 
 # настройки читаю при каждом вызове: основной файл загружает .env уже после
 # импортов, и закешированные значения были бы пустыми
-def _url() -> str:
-    return (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
+def _url() -> str | None:
+    """Адрес сервиса: из .env, иначе — первый отвечающий из списка."""
+    global _resolved, _resolved_at
+
+    explicit = (os.getenv("ALIVE_MAP_URL") or "").strip().rstrip("/")
+    if explicit:
+        return explicit
+
+    if _resolved and time.time() - _resolved_at < 60:
+        return _resolved
+
+    for base in CANDIDATES:
+        try:
+            resp = requests.get(f"{base}/health", timeout=1.5)
+        except requests.RequestException:
+            continue
+        if resp.status_code < 400:
+            _resolved, _resolved_at = base, time.time()
+            logger.info("живая карта: нашёл сервис на %s", base)
+            return base
+
+    _resolved, _resolved_at = None, time.time()
+    return None
 
 
 def _public() -> str:
@@ -67,12 +103,16 @@ _pick: Callable[..., str] | None = None
 
 
 def is_on() -> bool:
-    return _enabled() and bool(_url())
+    return _enabled() and bool(_service())
 
 
 def public_base() -> str:
     """Адрес для кнопок: сначала публичный, иначе локальный."""
-    return _public() or _url()
+    return _public() or _service() or CANDIDATES[0]
+
+
+def _service() -> str | None:
+    return _url()
 
 
 def _parse_coords(value: Any) -> tuple[float, float] | None:
@@ -92,14 +132,32 @@ def _parse_coords(value: Any) -> tuple[float, float] | None:
 
 # ---------------- запросы к сервису ----------------
 
+def status() -> dict | None:
+    """Что сейчас с сервисом: зоны, мои места, готов ли роутер."""
+    base = _service()
+    if not base:
+        return None
+    try:
+        resp = requests.get(f"{base}/api/config", timeout=4.0)
+        if resp.status_code >= 400:
+            return None
+        return resp.json()
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def compare(start_lat: float, start_lon: float, end_lat: float, end_lon: float,
             strength: float = 1.0) -> dict | None:
     """Оба маршрута сразу. None — сервис недоступен или отказал."""
-    if not is_on():
+    if not _enabled():
+        return None
+    base = _service()
+    if not base:
+        logger.warning("живая карта: сервис не найден (%s)", ", ".join(CANDIDATES))
         return None
     try:
         resp = requests.post(
-            f"{_url()}/api/compare",
+            f"{base}/api/compare",
             json={
                 "start": [start_lon, start_lat],
                 "end": [end_lon, end_lat],
@@ -127,11 +185,14 @@ def compare(start_lat: float, start_lon: float, end_lat: float, end_lon: float,
 def compare_png(start_lat: float, start_lon: float, end_lat: float, end_lon: float,
                 title: str = "") -> bytes | None:
     """Картинка с двумя маршрутами."""
-    if not is_on():
+    if not _enabled():
+        return None
+    base = _service()
+    if not base:
         return None
     try:
         resp = requests.get(
-            f"{_url()}/api/compare.png",
+            f"{base}/api/compare.png",
             params={
                 "from": f"{start_lat:.6f},{start_lon:.6f}",
                 "to": f"{end_lat:.6f},{end_lon:.6f}",
@@ -225,12 +286,34 @@ def _route_keyboard(place: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-PANEL_TEXT = (
+PANEL_HEAD = (
     "🗺 <b>Живая карта</b>\n\n"
     "Считаю два пеших маршрута: <b>быстрый</b> — как обычный навигатор, "
     "и <b>живой</b> — через парки, набережные и мимо мест из моей базы.\n\n"
-    "Данные и роутер свои, ключи не нужны."
 )
+
+
+def panel_text() -> str:
+    """Текст панели + состояние сервиса: видно, что работает, а что нет."""
+    cfg = status()
+    if cfg is None:
+        return (PANEL_HEAD +
+                "Сейчас сервис карты не отвечает. Если он на этой машине — запусти "
+                "<code>start.bat</code> в папке <code>alive-maps-service</code>.")
+
+    zones = (cfg.get("zones") or {}).get("count") or 0
+    own = (cfg.get("own") or {}).get("count") or 0
+    gh_ok = bool((cfg.get("graphhopper") or {}).get("ok"))
+    tiles_ok = bool(cfg.get("tiles_ok"))
+
+    if gh_ok:
+        line = f"зон: {zones} · моих мест: {own} · роутер готов"
+    else:
+        line = (f"зон: {zones} · моих мест: {own} · роутер пока импортирует граф "
+                "(первые 1–3 минуты после запуска)")
+    if not tiles_ok:
+        line += " · тайлы не отвечают"
+    return PANEL_HEAD + line
 
 
 # ---------------- поиск места в базе ----------------
@@ -296,13 +379,13 @@ def register(dp, get_places: Callable[[str], list[dict]],
         if not is_on():
             await message.answer("Живая карта сейчас выключена.")
             return
-        await message.answer(PANEL_TEXT, reply_markup=_panel_keyboard())
+        await message.answer(panel_text(), reply_markup=_panel_keyboard())
 
     @dp.callback_query(F.data == "alive:panel")
     async def cb_panel(call: types.CallbackQuery, state: FSMContext) -> None:
         await state.clear()
         await call.answer()
-        await call.message.answer(PANEL_TEXT, reply_markup=_panel_keyboard())
+        await call.message.answer(panel_text(), reply_markup=_panel_keyboard())
 
     @dp.callback_query(F.data == "alive:ask")
     async def cb_ask(call: types.CallbackQuery, state: FSMContext) -> None:
@@ -410,7 +493,11 @@ def register(dp, get_places: Callable[[str], list[dict]],
             pass
 
         if result is None:
-            await message.answer("Живая карта сейчас недоступна. Попробуй позже.")
+            await message.answer(
+                "Живая карта сейчас недоступна: не нашёл сервис.\n"
+                "Если он на этой машине — запусти start.bat в папке alive-maps-service "
+                "и повтори."
+            )
             await state.clear()
             return
         if result.get("error"):
@@ -434,4 +521,4 @@ def register(dp, get_places: Callable[[str], list[dict]],
         else:
             await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
-    logger.info("живая карта подключена: сервис %s", _url())
+    logger.info("живая карта включена: %s", _service() or "сервис пока не найден")
