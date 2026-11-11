@@ -79,6 +79,20 @@ if ($needZones) {
   Ok "собрано"
 } else { Ok "уже есть" }
 
+# ---------- 3.5 Мои точки из базы бота ----------
+Step "Мои точки из базы (кофе, пляжи, музеи)"
+$baseXlsx = Join-Path (Split-Path $PWD -Parent) "Sevastopol AI База.xlsx"
+if (-not (Test-Path $baseXlsx)) {
+  Ok "базы рядом нет - оставляю готовый data/pois.geojson"
+} elseif ((Test-Path "data/pois.geojson") -and ((Get-Item "data/pois.geojson").LastWriteTime -gt (Get-Item $baseXlsx).LastWriteTime)) {
+  Ok "уже свежие"
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+  python tools/export_pois.py --xlsx $baseXlsx --out data/pois.geojson *> $null
+  if ($LASTEXITCODE -eq 0) { Ok "обновил из базы" } else { Warn "не смог обновить точки - останется прежний файл" }
+} else {
+  Warn "нет python - не могу пересобрать точки, останется прежний файл"
+}
+
 # ---------- 4. Шрифты ----------
 Step "Шрифты для подписей на карте"
 $fontCount = 0
@@ -131,7 +145,16 @@ for ($i = 1; $i -le 120; $i++) {
   if ($i % 6 -eq 0) { Write-Host "  ... ещё жду ($($i * 5) с)" }
 }
 
-if ($ready) { Ok "сервис готов" } else { Warn "не дождался за 10 минут: $($script:DC) compose logs -f graphhopper" }
+if ($ready) {
+  Ok "сервис готов"
+} else {
+  Warn "не дождался за 10 минут - вот что говорит роутер:"
+  Write-Host ""
+  & $script:DC compose logs --tail=25 graphhopper 2>&1 | ForEach-Object { Write-Host "    $_" }
+  Write-Host ""
+  Warn "чаще всего это память (для Docker нужно 6+ ГБ) или занятый порт 8080"
+  Warn "логи целиком: $($script:DC) compose logs graphhopper > graphhopper.log"
+}
 
 Write-Host ""
 Write-Host "-> $url" -ForegroundColor Green

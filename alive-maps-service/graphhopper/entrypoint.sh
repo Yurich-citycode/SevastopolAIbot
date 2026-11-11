@@ -1,5 +1,7 @@
 #!/bin/sh
-# Понятная ошибка вместо java-стектрейса, если забыли скачать данные.
+# Понятная ошибка вместо java-стектрейса, если забыли скачать данные,
+# и один автоматический перезапуск, если кэш графа остался битым
+# после прерванного импорта (частая история при первом запуске).
 set -e
 
 PBF="${PBF:-/data/sevastopol.osm.pbf}"
@@ -24,5 +26,27 @@ else
   echo "[gh] первый запуск: импортирую $(du -h "$PBF" | cut -f1) OSM-данных, это может занять несколько минут"
 fi
 
-echo "[gh] GraphHopper ${GH_VERSION} → http://0.0.0.0:8989"
-exec java ${JAVA_OPTS:--Xmx2g} -jar /app/graphhopper.jar "$@"
+attempt=1
+while true; do
+  echo "[gh] GraphHopper ${GH_VERSION} → http://0.0.0.0:8989 (попытка $attempt)"
+  set +e
+  java ${JAVA_OPTS:--Xmx2g} -jar /app/graphhopper.jar "$@"
+  code=$?
+  set -e
+
+  [ "$code" -eq 0 ] && exit 0
+
+  if [ "$attempt" -ge 2 ]; then
+    echo "[gh] второй запуск тоже упал (код $code) — смотри лог выше" >&2
+    exit "$code"
+  fi
+
+  if [ -d /data/graph-cache ]; then
+    echo "[gh] импорт оборвался — удаляю недописанный кэш /data/graph-cache и пробую ещё раз"
+    rm -rf /data/graph-cache
+    attempt=$((attempt + 1))
+    continue
+  fi
+
+  exit "$code"
+done

@@ -14,3 +14,10 @@ venv/
 *.log
 .DS_Store
 .env
+
+# Скачанное и служебное
+cloudflared
+cloudflared.exe
+cloudflared.tgz
+*.log
+diagnostics.txt

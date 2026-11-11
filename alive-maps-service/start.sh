@@ -88,6 +88,23 @@ else
   ok "собрано"
 fi
 
+# ---------- 3.5 Мои точки из базы бота ----------
+step "Мои точки из базы (кофе, пляжи, музеи)"
+BASE_XLSX="../Sevastopol AI База.xlsx"
+if [ ! -f "$BASE_XLSX" ]; then
+  ok "базы рядом нет — оставляю готовый data/pois.geojson"
+elif [ -f data/pois.geojson ] && [ data/pois.geojson -nt "$BASE_XLSX" ]; then
+  ok "уже свежие"
+elif command -v python3 >/dev/null 2>&1; then
+  if python3 tools/export_pois.py --xlsx "$BASE_XLSX" --out data/pois.geojson >/dev/null 2>&1; then
+    ok "обновил из базы"
+  else
+    warn "не смог обновить точки (нет pandas?) — останется прежний файл"
+  fi
+else
+  warn "нет python3 — не могу пересобрать точки, останется прежний файл"
+fi
+
 # ---------- 4. Шрифты ----------
 step "Шрифты для подписей на карте"
 if [ -d data/fonts ] && [ -n "$(ls -A data/fonts 2>/dev/null)" ]; then
@@ -134,7 +151,12 @@ done
 if [ "$ready" = "1" ]; then
   ok "сервис готов"
 else
-  warn "не дождался за 10 минут — открой логи: $DC logs -f graphhopper"
+  warn "не дождался за 10 минут — вот что говорит роутер:"
+  echo
+  $DC logs --tail=25 graphhopper 2>&1 | sed 's/^/    /' || true
+  echo
+  warn "чаще всего это память (нужно 6+ ГБ для Docker) или порт 8080"
+  warn "логи целиком: $DC logs graphhopper > graphhopper.log"
 fi
 
 say ""

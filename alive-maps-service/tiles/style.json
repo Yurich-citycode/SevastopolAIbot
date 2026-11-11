@@ -8,7 +8,9 @@
   "sources": {
     "osm": {
       "type": "vector",
-      "tiles": ["/tiles/{z}/{x}/{y}.pbf"],
+      "tiles": [
+        "/tiles/{z}/{x}/{y}.pbf"
+      ],
       "minzoom": 0,
       "maxzoom": 15,
       "attribution": "Данные © OpenStreetMap"
@@ -18,15 +20,27 @@
     {
       "id": "bg",
       "type": "background",
-      "paint": { "background-color": "#0A0B09" }
+      "paint": {
+        "background-color": "#0A0B09"
+      }
     },
     {
       "id": "landcover-wood",
       "type": "fill",
       "source": "osm",
       "source-layer": "landcover",
-      "filter": ["==", ["get", "class"], "wood"],
-      "paint": { "fill-color": "#0F1A0D", "fill-opacity": 0.9 }
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "wood"
+      ],
+      "paint": {
+        "fill-color": "#0F1A0D",
+        "fill-opacity": 0.9
+      }
     },
     {
       "id": "landuse-residential",
@@ -34,15 +48,28 @@
       "source": "osm",
       "source-layer": "landuse",
       "minzoom": 11,
-      "filter": ["==", ["get", "class"], "residential"],
-      "paint": { "fill-color": "#101208", "fill-opacity": 0.6 }
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "residential"
+      ],
+      "paint": {
+        "fill-color": "#101208",
+        "fill-opacity": 0.6
+      }
     },
     {
       "id": "park-fill",
       "type": "fill",
       "source": "osm",
       "source-layer": "park",
-      "paint": { "fill-color": "#13200E", "fill-opacity": 0.95 }
+      "paint": {
+        "fill-color": "#13200E",
+        "fill-opacity": 0.95
+      }
     },
     {
       "id": "park-outline",
@@ -50,14 +77,19 @@
       "source": "osm",
       "source-layer": "park",
       "minzoom": 12,
-      "paint": { "line-color": "#1F3320", "line-width": 0.8 }
+      "paint": {
+        "line-color": "#1F3320",
+        "line-width": 0.8
+      }
     },
     {
       "id": "water",
       "type": "fill",
       "source": "osm",
       "source-layer": "water",
-      "paint": { "fill-color": "#0C161C" }
+      "paint": {
+        "fill-color": "#0C161C"
+      }
     },
     {
       "id": "waterway",
@@ -65,7 +97,10 @@
       "source": "osm",
       "source-layer": "waterway",
       "minzoom": 12,
-      "paint": { "line-color": "#16262E", "line-width": 1 }
+      "paint": {
+        "line-color": "#16262E",
+        "line-width": 1
+      }
     },
     {
       "id": "building",
@@ -85,12 +120,42 @@
       "source": "osm",
       "source-layer": "transportation",
       "minzoom": 13,
-      "filter": ["match", ["get", "class"], ["path", "track"], true, false],
-      "layout": { "line-cap": "round", "line-join": "round" },
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "path",
+          "track"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
       "paint": {
         "line-color": "#2B2E20",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.6, 17, 2],
-        "line-dasharray": [2, 2]
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.6,
+          17,
+          2
+        ],
+        "line-dasharray": [
+          2,
+          2
+        ]
       }
     },
     {
@@ -99,11 +164,39 @@
       "source": "osm",
       "source-layer": "transportation",
       "minzoom": 11,
-      "filter": ["match", ["get", "class"], ["minor", "service"], true, false],
-      "layout": { "line-cap": "round", "line-join": "round" },
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "minor",
+          "service"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
       "paint": {
         "line-color": "#262920",
-        "line-width": ["interpolate", ["exponential", 1.4], ["zoom"], 11, 0.6, 17, 6]
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.4
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          0.6,
+          17,
+          6
+        ]
       }
     },
     {
@@ -112,11 +205,103 @@
       "source": "osm",
       "source-layer": "transportation",
       "minzoom": 8,
-      "filter": ["match", ["get", "class"], ["primary", "secondary", "tertiary", "trunk", "motorway"], true, false],
-      "layout": { "line-cap": "round", "line-join": "round" },
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "primary",
+          "secondary",
+          "tertiary",
+          "trunk",
+          "motorway"
+        ],
+        true,
+        false
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
       "paint": {
         "line-color": "#3A3D2C",
-        "line-width": ["interpolate", ["exponential", 1.4], ["zoom"], 8, 0.8, 17, 12]
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.4
+          ],
+          [
+            "zoom"
+          ],
+          8,
+          0.8,
+          17,
+          12
+        ]
+      }
+    },
+    {
+      "id": "poi-label",
+      "type": "symbol",
+      "source": "sevastopol",
+      "source-layer": "poi",
+      "minzoom": 14,
+      "filter": [
+        "all",
+        [
+          "has",
+          "name"
+        ],
+        [
+          "!=",
+          "class",
+          "bus"
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name"
+          ],
+          [
+            "get",
+            "name:latin"
+          ]
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          9.5,
+          17,
+          12
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-max-width": 7,
+        "text-offset": [
+          0,
+          0.6
+        ],
+        "text-anchor": "top",
+        "text-optional": true
+      },
+      "paint": {
+        "text-color": "#C9CFC2",
+        "text-halo-color": "#12140F",
+        "text-halo-width": 1.3,
+        "text-halo-blur": 0.4
       }
     },
     {
@@ -126,11 +311,49 @@
       "source-layer": "place",
       "minzoom": 11,
       "maxzoom": 16,
-      "filter": ["match", ["get", "class"], ["suburb", "neighbourhood", "village", "town"], true, false],
+      "filter": [
+        "match",
+        [
+          "get",
+          "class"
+        ],
+        [
+          "suburb",
+          "neighbourhood",
+          "village",
+          "town"
+        ],
+        true,
+        false
+      ],
       "layout": {
-        "text-field": ["coalesce", ["get", "name"], ["get", "name_en"]],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 13],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name"
+          ],
+          [
+            "get",
+            "name_en"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          10,
+          16,
+          13
+        ],
         "text-transform": "uppercase",
         "text-letter-spacing": 0.1
       },
@@ -147,13 +370,29 @@
       "source-layer": "water_name",
       "minzoom": 12,
       "layout": {
-        "text-field": ["coalesce", ["get", "name"], ["get", "name_en"]],
-        "text-font": ["Noto Sans Italic"],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name"
+          ],
+          [
+            "get",
+            "name_en"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Italic"
+        ],
         "text-size": 11,
         "symbol-placement": "line",
         "symbol-spacing": 600
       },
-      "paint": { "text-color": "#3F6B80", "text-halo-color": "#0A0B09", "text-halo-width": 1 }
+      "paint": {
+        "text-color": "#3F6B80",
+        "text-halo-color": "#0A0B09",
+        "text-halo-width": 1
+      }
     },
     {
       "id": "road-name",
@@ -162,15 +401,43 @@
       "source-layer": "transportation_name",
       "minzoom": 14,
       "layout": {
-        "text-field": ["coalesce", ["get", "name"], ["get", "name_en"]],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 9, 17, 12],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name"
+          ],
+          [
+            "get",
+            "name_en"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Regular"
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          9,
+          17,
+          12
+        ],
         "symbol-placement": "line",
         "symbol-spacing": 350,
         "text-max-angle": 30,
         "text-padding": 2
       },
-      "paint": { "text-color": "#8D9280", "text-halo-color": "#0A0B09", "text-halo-width": 1.4 }
+      "paint": {
+        "text-color": "#8D9280",
+        "text-halo-color": "#0A0B09",
+        "text-halo-width": 1.4
+      }
     },
     {
       "id": "poi-park-label",
@@ -179,12 +446,28 @@
       "source-layer": "park",
       "minzoom": 13,
       "layout": {
-        "text-field": ["coalesce", ["get", "name"], ["get", "name_en"]],
-        "text-font": ["Noto Sans Italic"],
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name"
+          ],
+          [
+            "get",
+            "name_en"
+          ]
+        ],
+        "text-font": [
+          "Noto Sans Italic"
+        ],
         "text-size": 11,
         "text-padding": 4
       },
-      "paint": { "text-color": "#6E9C5E", "text-halo-color": "#0A0B09", "text-halo-width": 1.4 }
+      "paint": {
+        "text-color": "#6E9C5E",
+        "text-halo-color": "#0A0B09",
+        "text-halo-width": 1.4
+      }
     }
   ]
 }
