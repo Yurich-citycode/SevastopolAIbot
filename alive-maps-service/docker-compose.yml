@@ -30,10 +30,10 @@ services:
     healthcheck:
       # импорт графа на первом старте занимает минуты — поэтому start_period большой
       test: ["CMD", "curl", "-fsS", "http://localhost:8989/health"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 30
-      start_period: 600s
+      retries: 40
+      start_period: 900s
 
   # ---------- TileServer GL: наши тайлы ----------
   tileserver:
@@ -72,8 +72,10 @@ services:
     ports:
       - "${PORT:-8080}:8000"
     depends_on:
+      # backend стартует даже если GraphHopper ещё импортирует граф:
+      # страница открывается сразу, а /api/health покажет статус
       graphhopper:
-        condition: service_healthy
+        condition: service_started
       tileserver:
         condition: service_started
 

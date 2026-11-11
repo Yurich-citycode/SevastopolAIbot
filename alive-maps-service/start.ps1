@@ -101,7 +101,20 @@ if (Test-Path "data/sevastopol.mbtiles") {
 # ---------- 6. Стек ----------
 Step "Поднимаю сервисы"
 & $script:DC compose up -d --build
-if ($LASTEXITCODE -ne 0) { Die "compose up не удался - смотри вывод выше." }
+if ($LASTEXITCODE -ne 0) {
+  Warn "compose up завершился с ошибкой - собираю диагностику..."
+  $diag = "diagnostics.txt"
+  $lines = @()
+  $lines += "=== docker compose ps -a ==="
+  $lines += (& $script:DC compose ps -a 2>&1 | Out-String)
+  $lines += "=== graphhopper (последние 80 строк) ==="
+  $lines += (& $script:DC compose logs --tail=80 graphhopper 2>&1 | Out-String)
+  $lines += "=== backend (последние 40 строк) ==="
+  $lines += (& $script:DC compose logs --tail=40 backend 2>&1 | Out-String)
+  $lines | Set-Content -Path $diag -Encoding UTF8
+  Write-Host ($lines -join "`n")
+  Die "не удалось поднять стек.`n  Рядом со скриптом сохранён файл $diag - пришли его, и станет понятно, что именно упало."
+}
 Ok "контейнеры запущены"
 
 # ---------- 7. Ждём готовности ----------

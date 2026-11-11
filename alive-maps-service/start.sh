@@ -107,7 +107,15 @@ fi
 
 # ---------- 6. Стек ----------
 step "Поднимаю сервисы"
-$DC up -d --build || die "docker compose up не удался — смотри вывод выше"
+if ! $DC up -d --build; then
+  warn "docker compose up завершился с ошибкой — собираю диагностику"
+  DIAG=diagnostics.txt
+  { echo "=== docker compose ps -a ==="; $DC ps -a 2>&1
+    echo; echo "=== graphhopper (последние 80 строк) ==="; $DC logs --tail=80 graphhopper 2>&1
+    echo; echo "=== backend (последние 40 строк) ==="; $DC logs --tail=40 backend 2>&1
+  } | tee "$DIAG"
+  die "не удалось поднять стек. Файл $DIAG рядом со скриптом — пришли его."
+fi
 ok "контейнеры запущены"
 
 # ---------- 7. Ждём готовности ----------
