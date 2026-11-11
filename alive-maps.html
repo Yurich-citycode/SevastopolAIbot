@@ -116,9 +116,9 @@
   /* ============ СЕКЦИИ ============ */
   .block{ margin-bottom:20px; }
   .sec-head{ display:flex; align-items:center; gap:10px; margin:0 0 12px; }
-  .sec-head .num{ color:var(--lime); font-weight:700; letter-spacing:.14em; white-space:nowrap; font-size:9.5px; }
+  .sec-head .num{ color:var(--lime); font-weight:700; letter-spacing:.14em; white-space:nowrap; font-size:10.5px; }
   .sec-head .rule{ flex:1 1 auto; height:1px; background:var(--line); }
-  .sec-head .meta{ color:var(--dim); letter-spacing:.1em; white-space:nowrap; font-size:9px; }
+  .sec-head .meta{ color:var(--dim); letter-spacing:.1em; white-space:nowrap; font-size:10px; }
 
   /* ============ A → B ============ */
   .ab{ display:flex; gap:10px; align-items:stretch; }
@@ -174,7 +174,7 @@
   .sugg button:hover,.sugg button:focus{ background:rgba(198,244,50,.09); }
   .sugg button small{ display:block; color:var(--dim); font-size:11px; margin-top:2px; font-family:var(--font-mono); letter-spacing:.04em; }
 
-  .hint{ color:var(--dim); font-size:11.5px; line-height:1.5; margin-top:8px; }
+  .hint{ color:var(--dim); font-size:12px; line-height:1.55; margin-top:9px; }
   .hint kbd{
     font-family:var(--font-mono); font-size:10px;
     border:1px solid var(--line-soft); padding:1px 5px; color:var(--muted);
@@ -277,7 +277,7 @@
   .rcard.alive{ border-color:rgba(198,244,50,.7); box-shadow:0 0 0 1px rgba(198,244,50,.16), 0 16px 40px rgba(198,244,50,.08); }
   .rcard.alive[data-active="true"]{ box-shadow:0 0 0 1px rgba(198,244,50,.5), 0 18px 46px rgba(198,244,50,.14); }
   .rhead{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
-  .rlabel{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .rlabel{ font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
   .rcard.alive .rlabel{ color:var(--lime); }
   .rbadge{
     font-family:var(--font-mono); font-size:8.5px; letter-spacing:.1em;
@@ -338,7 +338,7 @@
   .why summary::-webkit-details-marker{ display:none; }
   .why summary::before{ content:"＋ "; }
   .why[open] summary::before{ content:"− "; }
-  .why p{ margin:9px 0 0; font-size:11.5px; line-height:1.65; color:var(--muted); }
+  .why p{ margin:9px 0 0; font-size:12px; line-height:1.65; color:var(--muted); }
   .why code{
     display:block; margin:9px 0 0; padding:9px 10px;
     background:#0A0B09; border:1px solid var(--line-soft);
@@ -385,7 +385,7 @@
     margin-top:22px; padding-top:12px;
     border-top:1px solid var(--line-soft);
     display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;
-    color:var(--dim); font-size:9px;
+    color:var(--dim); font-size:9.5px;
   }
   .foot a{ color:var(--dim); text-decoration:none; border-bottom:1px solid transparent; }
   .foot a:hover{ color:var(--lime); border-color:var(--lime); }
@@ -435,16 +435,56 @@
   }
   .mapchips{
     position:absolute; z-index:500; top:12px; right:12px;
-    display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;
+    display:flex; gap:2px; flex-wrap:wrap; justify-content:flex-end;
     max-width:calc(100% - 70px);
-  }
-  .mchip{
-    background:rgba(10,11,9,.84);
+    background:rgba(10,11,9,.72);
     border:1px solid var(--line-soft);
+    border-radius:999px;
+    padding:3px;
+    backdrop-filter:blur(10px) saturate(1.2);
+    -webkit-backdrop-filter:blur(10px) saturate(1.2);
+  }
+
+  /* экран «ещё ничего не выбрано» — вместо пустого тёмного поля */
+  .mapstart{
+    position:absolute; z-index:450; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none; transition:opacity .35s ease, transform .35s ease;
+  }
+  .mapstart.gone{ opacity:0; transform:scale(.985); }
+  .mapstart .box{
+    display:flex; align-items:center; gap:14px;
+    background:rgba(10,11,9,.82);
+    border:1px solid rgba(198,244,50,.28);
+    border-radius:14px;
+    padding:16px 20px;
+    box-shadow:0 24px 70px rgba(0,0,0,.55);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    max-width:min(420px, 82%);
+  }
+  .mapstart .dotmap{
+    position:relative; width:34px; height:34px; flex:0 0 auto;
+    border:1px solid rgba(198,244,50,.5); border-radius:50%;
+  }
+  .mapstart .dotmap::before,
+  .mapstart .dotmap::after{
+    content:''; position:absolute; width:7px; height:7px; border-radius:50%;
+  }
+  .mapstart .dotmap::before{ background:var(--lime); top:6px; left:7px; box-shadow:0 0 10px rgba(198,244,50,.8); }
+  .mapstart .dotmap::after{ background:rgba(242,245,236,.55); bottom:6px; right:7px; }
+  .mapstart b{
+    display:block; font-family:var(--font-display); font-size:17px; letter-spacing:.02em;
+    color:var(--ink); margin-bottom:3px;
+  }
+  .mapstart span{ display:block; font-size:12px; line-height:1.5; color:var(--muted); }
+  .mchip{
+    background:transparent;
+    border:1px solid transparent;
+    border-radius:999px;
     color:var(--muted);
-    font-family:var(--font-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase;
-    padding:7px 9px; cursor:pointer;
-    backdrop-filter:blur(6px);
+    font-family:var(--font-mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase;
+    padding:7px 11px; cursor:pointer;
     transition:color .16s ease, border-color .16s ease, background-color .16s ease;
   }
   .mchip:hover{ color:var(--lime); border-color:var(--lime); }
@@ -454,8 +494,9 @@
     position:absolute; z-index:500; left:12px; bottom:22px;
     background:rgba(10,11,9,.84);
     border:1px solid var(--line-soft);
-    padding:9px 10px;
-    backdrop-filter:blur(6px);
+    padding:9px 11px;
+    border-radius:10px;
+    backdrop-filter:blur(10px);
     display:grid; gap:5px;
     max-width:190px;
   }
@@ -475,7 +516,8 @@
     background:rgba(10,11,9,.86);
     border:1px solid var(--line-soft);
     border-left:2px solid var(--lime);
-    padding:9px 11px;
+    border-radius:10px;
+    padding:9px 12px;
     font-size:11px; line-height:1.5; color:var(--muted);
     backdrop-filter:blur(6px);
     transition:opacity .3s ease;
@@ -546,7 +588,7 @@
     <div class="brand">
       <div class="sq"></div>
       <div class="name">Alive Maps</div>
-      <span class="ver mono">v0.4</span>
+      <span class="ver mono">v0.5</span>
     </div>
 
     <h1>Не самый<br>быстрый —<br><em>самый живой</em></h1>
@@ -640,6 +682,16 @@
   <div class="mapwrap">
     <div id="map"></div>
     <div class="mapveil"></div>
+    <div class="mapstart" id="mapstart">
+      <div class="box">
+        <div class="dotmap"></div>
+        <div>
+          <b>С чего начать</b>
+          <span>Клик по карте — точка <b style="color:var(--lime);display:inline">A</b>. Второй клик — точка B. Или впиши адрес слева.</span>
+        </div>
+      </div>
+    </div>
+
     <div class="mapchips">
       <button class="mchip" id="toggleGlow" aria-pressed="true">слой живости</button>
       <button class="mchip" id="togglePoi" aria-pressed="true">точки</button>
@@ -1987,8 +2039,15 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     if (!fromDrag) state.pick = which === 'A' ? 'B' : 'A';
     updatePickHint();
     hideSugg();
+    syncStart();
 
     if (state.A && state.B) scheduleBuild(320);
+  }
+
+  function syncStart() {
+    var ms = $('#mapstart');
+    if (!ms) return;
+    ms.classList.toggle('gone', !!(state.A || state.B));
   }
 
   function clearPoint(which) {
@@ -1999,6 +2058,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     $('#field' + which).classList.remove('filled');
     state.pick = which;
     updatePickHint();
+    syncStart();
   }
 
   function updatePickHint() {
@@ -2412,7 +2472,16 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   function renderResults(res) {
     var box = $('#routes');
     box.innerHTML = cardHTML('fast', res.fast, res) + cardHTML('alive', res.alive, res);
+    var wasHidden = $('#results').hidden;
     $('#results').hidden = false;
+    syncStart();
+
+    /* первый результат прокручиваем в зону видимости — но не на каждый сдвиг α */
+    if (wasHidden) {
+      try {
+        $('#results').scrollIntoView({ block: 'start', behavior: 'smooth' });
+      } catch (e) { }
+    }
 
     var g = state.graph;
     $('#resMeta').textContent = 'α ' + res.alpha.toFixed(2) + ' · ' + fmtInt(g.E) + ' рёбер';
