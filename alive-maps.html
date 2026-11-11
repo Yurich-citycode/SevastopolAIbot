@@ -2104,6 +2104,8 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     logClear();
     var errbox = $('#errbox');
     if (errbox) errbox.innerHTML = '';
+    var note = $('#mapnoteText');
+    if (note) note.textContent = 'ищу улицы и точки в OpenStreetMap…';
     var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
 
     try {
