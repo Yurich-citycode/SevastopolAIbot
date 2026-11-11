@@ -38,7 +38,7 @@
 Скачать архивом (проще всего):
 
 ```
-https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-v1.0.zip
+https://github.com/Yurich-citycode/SevastopolAIbot/releases/latest
 ```
 
 Распакуй — внутри будет папка `alive-maps-service`. Дальше все команды
@@ -374,5 +374,5 @@ http://localhost:8080/api/config     → сколько зон загружен�
 | Папка сервиса | https://github.com/Yurich-citycode/SevastopolAIbot/tree/main/alive-maps-service |
 | README сервиса (архитектура, API) | https://github.com/Yurich-citycode/SevastopolAIbot/blob/main/alive-maps-service/README.md |
 | Эта инструкция | https://github.com/Yurich-citycode/SevastopolAIbot/blob/main/alive-maps-service/SETUP.md |
-| Архив для скачивания | https://github.com/Yurich-citycode/SevastopolAIbot/archive/refs/tags/alive-maps-v1.0.zip |
-| Одиночный HTML-демо (без установки) | https://cdn.jsdelivr.net/gh/Yurich-citycode/SevastopolAIbot@alive-maps-v1.0/alive-maps.html |
+| Архив для скачивания | https://github.com/Yurich-citycode/SevastopolAIbot/releases/latest |
+| Одиночный HTML-демо (без установки) | https://cdn.jsdelivr.net/gh/Yurich-citycode/SevastopolAIbot@main/alive-maps.html |

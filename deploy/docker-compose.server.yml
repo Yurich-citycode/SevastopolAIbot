@@ -1,0 +1,36 @@
+# Бот на сервере (Linux VPS).
+#
+# Отдельный файл, чтобы локальный запуск на Windows не путался с серверным.
+# Карта поднимается своим compose в alive-maps-service, бот — этим.
+#
+#   docker compose -f deploy/docker-compose.server.yml up -d --build
+#
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: alive-bot
+    restart: unless-stopped
+
+    # host-сеть: бот видит карту на localhost:8080, как будто запущен прямо
+    # на сервере. Никаких docker-сетей настраивать не нужно.
+    network_mode: host
+
+    env_file:
+      - ../.env
+
+    environment:
+      STATE_FILE: /data/bot_state.json
+      BACKUP_DIR: /data/backups
+      ALIVE_MAP_URL: http://localhost:8080
+
+    volumes:
+      # паспорта, статистика и бэкапы переживают пересборку контейнера
+      - ./bot-state:/data
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
