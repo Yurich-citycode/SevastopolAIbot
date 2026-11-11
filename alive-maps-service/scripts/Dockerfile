@@ -4,8 +4,11 @@
 # Постоянно работать он не должен — это именно мастерская.
 FROM python:3.12-slim
 
+# libexpat/bz2/lzma нужны pyosmium в рантайме: без libexpat он падает с
+# "libexpat.so.1: cannot open shared object file: No such file or directory"
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+      libexpat1 libbz2-1.0 zlib1g liblzma5 \
  && rm -rf /var/lib/apt/lists/*
 
 # pyosmium читает OSM, shapely считает буферы и объединяет зоны

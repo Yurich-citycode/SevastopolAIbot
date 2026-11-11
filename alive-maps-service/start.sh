@@ -62,8 +62,8 @@ fi
 # Одноразовый контейнер tools. Флаг TTY в разных версиях compose называется
 # по-разному (--no-TTY / -T / никак), поэтому пробуем оба варианта.
 run_tools() {
-  $DC --profile build run --rm tools "$@" && return 0
-  $DC --profile build run --rm -T tools "$@"
+  $DC --profile build run --rm --build tools "$@" && return 0
+  $DC --profile build run --rm --build -T tools "$@"
 }
 
 # ---------- 2. Данные ----------

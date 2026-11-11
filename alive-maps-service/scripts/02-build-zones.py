@@ -56,10 +56,14 @@ try:
     import osmium
     from shapely.geometry import Point, Polygon, box, mapping, shape
     from shapely.ops import unary_union
-except ImportError as exc:  # pragma: no cover
+except (ImportError, OSError) as exc:  # pragma: no cover
     sys.exit(
-        f"не хватает зависимостей: {exc}\n"
-        "поставь их:  pip install -r scripts/requirements.txt"
+        f"не хватает зависимостей: {exc}\n\n"
+        "Если это запускается в контейнере (обычный случай) — образ tools\n"
+        "устарел, пересобери его:\n"
+        "    docker compose --profile build build tools\n\n"
+        "Если запускаешь скрипт напрямую на машине:\n"
+        "    pip install -r scripts/requirements.txt"
     )
 
 

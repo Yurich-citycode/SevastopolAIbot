@@ -48,10 +48,10 @@ Ok "готово: $($script:DC) compose"
 # Одноразовый контейнер tools. Флаг TTY в разных версиях compose называется
 # по-разному, поэтому сначала обычный запуск, при ошибке - повтор с -T.
 function ToolRun([string[]]$cmd) {
-  & $script:DC compose --profile build run --rm tools @cmd
+  & $script:DC compose --profile build run --rm --build tools @cmd
   if ($LASTEXITCODE -ne 0) {
     Write-Host "  повтор с -T ..." -ForegroundColor DarkGray
-    & $script:DC compose --profile build run --rm -T tools @cmd
+    & $script:DC compose --profile build run --rm --build -T tools @cmd
   }
 }
 
