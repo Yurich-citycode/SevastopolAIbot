@@ -1,0 +1,18 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "mbtiles": "/data",
+      "fonts": "/data/fonts"
+    },
+    "serveAllFonts": true,
+    "serveAllStyles": false,
+    "frontPage": false,
+    "verbose": true
+  },
+  "data": {
+    "sevastopol": {
+      "mbtiles": "sevastopol.mbtiles"
+    }
+  }
+}

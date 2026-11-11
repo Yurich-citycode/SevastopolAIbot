@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""Быстрая проверка сервиса БЕЗ Docker и без сети.
+
+Подменяет GraphHopper заглушкой и прогоняет весь путь запроса:
+конфиг → зоны → compare → route → валидация → стиль → статика.
+
+Запуск (из корня сервиса):
+    pip install -r scripts/requirements.txt fastapi httpx
+    python scripts/04-smoke-test.py
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+BACKEND = ROOT / "backend"
+sys.path.insert(0, str(BACKEND))
+
+# синтетические зоны: парк, кафе, набережная — рядом с тестовым маршрутом
+ZONES = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"kind": "park", "name": "Тестовый сквер"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[33.5185, 44.6095], [33.5205, 44.6095],
+                                 [33.5205, 44.6105], [33.5185, 44.6105], [33.5185, 44.6095]]],
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {"kind": "waterfront", "name": None},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[33.5215, 44.6098], [33.5228, 44.6098],
+                                 [33.5228, 44.6102], [33.5215, 44.6102], [33.5215, 44.6098]]],
+            },
+        },
+    ],
+    "pois": [{"kind": "cafe", "name": "Кофейня «Тест»", "lon": 33.5210, "lat": 44.6100}],
+}
+
+tmp = Path(tempfile.mkdtemp(prefix="alive-smoke-"))
+zones_file = tmp / "zones.geojson"
+zones_file.write_text(json.dumps(ZONES), encoding="utf-8")
+
+os.environ["ZONES_FILE"] = str(zones_file)
+os.environ["STYLE_FILE"] = str(ROOT / "tiles" / "style.json")
+os.environ["CACHE_TTL"] = "0"
+
+failures: list[str] = []
+calls: list[dict] = []
+
+
+def check(name: str, condition: bool, detail: object = "") -> None:
+    mark = "✓" if condition else "✗"
+    print(f"  {mark} {name:<42} {detail}")
+    if not condition:
+        failures.append(name)
+
+
+def main() -> int:
+    from fastapi.testclient import TestClient
+
+    from app import gh
+    from app.main import app
+
+    async def fake_route(client, start, end, mode, areas=None, rules=None, strength=1.0):
+        calls.append({"mode": mode, "areas": len((areas or {}).get("features", [])),
+                      "rules": len(rules or [])})
+        mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2]
+        fast = mode == "fast"
+        return gh.Route(mode=mode, coordinates=[start, mid, end],
+                        distance_m=1000 if fast else 1240,
+                        time_s=600 if fast else 668)
+
+    gh.route = fake_route  # подмена движка
+
+    with TestClient(app) as client:
+        print("здоровье и конфиг")
+        check("GET /health", client.get("/health").status_code == 200)
+        cfg = client.get("/api/config").json()
+        check("центр карты", cfg["center"] == [33.5225, 44.6134], cfg["center"])
+        check("зоны загружены", cfg["zones"]["count"] == 2, cfg["zones"]["by_kind"])
+
+        print("маршруты")
+        req = {"start": [33.5170, 44.6100], "end": [33.5235, 44.6100]}
+        resp = client.post("/api/compare", json=req)
+        check("POST /api/compare", resp.status_code == 200, resp.status_code)
+        data = resp.json()
+        check("fast — геометрия LineString",
+              data["fast"]["geojson"]["geometry"]["type"] == "LineString")
+        check("fast без custom model", calls[0]["areas"] == 0, calls[0])
+        check("alive с areas", calls[1]["areas"] == 2, calls[1])
+        check("bonus — парк с названием",
+              any(b.get("name") == "Тестовый сквер" for b in data["alive"]["bonuses"]),
+              [b.get("name") for b in data["alive"]["bonuses"]])
+        check("bonus — кафе рядом", any(b.get("kind") == "cafe" for b in data["alive"]["bonuses"]))
+        check("delta посчитан", data["delta"]["distance_m"] == 240, data["delta"])
+
+        print("режимы и валидация")
+        zero = client.post("/api/route", json={**req, "mode": "alive", "strength": 0})
+        check("strength=0 → без зон", zero.status_code == 200 and calls[-1]["areas"] == 0, calls[-1])
+        out = client.post("/api/route", json={"start": [10.0, 10.0], "end": [33.52, 44.61],
+                                              "mode": "alive"})
+        check("точка вне карты → 400", out.status_code == 400, out.json().get("detail"))
+
+        print("стиль, зоны, статика")
+        style = client.get("/style.json")
+        check("GET /style.json", style.status_code == 200 and "layers" in style.json())
+        check("GET /api/zones", len(client.get("/api/zones").json()["features"]) == 2)
+        index = client.get("/")
+        check("index.html", index.status_code == 200 and "maplibre-gl.js" in index.text)
+        check("вендоренный MapLibre", client.get("/static/vendor/maplibre-gl.js").status_code == 200)
+
+    print()
+    if failures:
+        print(f"✗ провалено: {len(failures)} — {', '.join(failures)}")
+        return 1
+    print("✓ всё зелёное: конфиг, зоны, маршруты, валидация, статика")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

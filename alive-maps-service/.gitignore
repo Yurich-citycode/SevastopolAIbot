@@ -1,0 +1,14 @@
+# Данные и производные файлы: скачиваются/собираются локально, в git не нужны
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Логи и временное
+*.log
+.DS_Store
+.env
