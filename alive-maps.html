@@ -478,6 +478,10 @@
     color:var(--ink); margin-bottom:3px;
   }
   .mapstart span{ display:block; font-size:12px; line-height:1.5; color:var(--muted); }
+  .mapstart[data-busy="true"] .dotmap{ animation:mpulse 1.6s ease-in-out infinite; }
+  .mapstart[data-busy="true"] .dotmap::after{ animation:mdot 1.6s ease-in-out infinite .3s; }
+  @keyframes mpulse{ 0%,100%{ border-color:rgba(198,244,50,.28); } 50%{ border-color:rgba(198,244,50,.85); } }
+  @keyframes mdot{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
   .mchip{
     background:transparent;
     border:1px solid transparent;
@@ -684,10 +688,10 @@
     <div class="mapveil"></div>
     <div class="mapstart" id="mapstart">
       <div class="box">
-        <div class="dotmap"></div>
+        <div class="dotmap" id="mapstartDot"></div>
         <div>
-          <b>С чего начать</b>
-          <span>Клик по карте — точка <b style="color:var(--lime);display:inline">A</b>. Второй клик — точка B. Или впиши адрес слева.</span>
+          <b id="mapstartHead">С чего начать</b>
+          <span id="mapstartText">Клик по карте — точка A, второй клик — точка B. Или впиши адрес слева.</span>
         </div>
       </div>
     </div>
@@ -2047,7 +2051,22 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   function syncStart() {
     var ms = $('#mapstart');
     if (!ms) return;
-    ms.classList.toggle('gone', !!(state.A || state.B));
+    var show = !state.res && !state.errored;
+    ms.classList.toggle('gone', !show);
+    ms.setAttribute('data-busy', state.busy ? 'true' : 'false');
+    var head = $('#mapstartHead'), txt = $('#mapstartText');
+    if (head && txt) {
+      if (state.busy) {
+        head.textContent = 'Считаю маршрут';
+        txt.textContent = 'Ищу улицы, парки, кафе и берег в OpenStreetMap — это самая долгая часть.';
+      } else if (!state.A || !state.B) {
+        head.textContent = 'С чего начать';
+        txt.textContent = 'Клик по карте — точка A, второй клик — точка B. Или впиши адрес слева.';
+      } else {
+        head.textContent = 'Точки на месте';
+        txt.textContent = 'Жми «Построить живой маршрут» слева — или подвинь точки и попробуй снова.';
+      }
+    }
   }
 
   function clearPoint(which) {
@@ -2241,6 +2260,8 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   }
 
   function showErr(e) {
+    state.errored = true;
+    syncStart();
     var box = $('#errbox');
     var msg = (e && e.message) ? e.message : String(e);
     box.innerHTML = '<div class="errbox"><h3>Не получилось посчитать</h3><p>' + esc(msg) +
@@ -2324,7 +2345,9 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     }
     if (state.busy) { state.queued = true; return; }
     state.busy = true;
+    state.errored = false;
     setBusy(true);
+    syncStart();
     logClear();
     var errbox = $('#errbox');
     if (errbox) errbox.innerHTML = '';
@@ -2399,6 +2422,7 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
     } finally {
       state.busy = false;
       setBusy(false);
+      syncStart();
       if (state.queued) { state.queued = false; build(); }
     }
   }
@@ -2472,16 +2496,8 @@ if (typeof globalThis !== 'undefined') globalThis.AM = AM;
   function renderResults(res) {
     var box = $('#routes');
     box.innerHTML = cardHTML('fast', res.fast, res) + cardHTML('alive', res.alive, res);
-    var wasHidden = $('#results').hidden;
     $('#results').hidden = false;
     syncStart();
-
-    /* первый результат прокручиваем в зону видимости — но не на каждый сдвиг α */
-    if (wasHidden) {
-      try {
-        $('#results').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      } catch (e) { }
-    }
 
     var g = state.graph;
     $('#resMeta').textContent = 'α ' + res.alpha.toFixed(2) + ' · ' + fmtInt(g.E) + ' рёбер';
