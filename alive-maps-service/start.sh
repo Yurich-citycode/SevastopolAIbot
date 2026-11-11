@@ -21,6 +21,11 @@ say "${BOLD}Sevastopol Alive Maps${OFF} ${DIM}— локальная карта 
 
 # ---------- 1. Docker / Podman ----------
 step "Проверяю Docker (или Podman)"
+# macOS: Docker Desktop кладёт CLI сюда и не всегда обновляет PATH
+for d in /Applications/Docker.app/Contents/Resources/bin "$HOME/.docker/bin"; do
+  [ -d "$d" ] && case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH" ;; esac
+done
+export PATH
 if [ -n "${DC_CMD:-}" ]; then
   DC="$DC_CMD"
 elif command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
@@ -30,7 +35,9 @@ elif command -v podman >/dev/null 2>&1 && podman compose version >/dev/null 2>&1
 elif command -v docker-compose >/dev/null 2>&1; then
   DC="docker-compose"
 else
-  die "Не найден ни Docker, ни Podman. Варианты:
+  die "Не найден ни Docker, ни Podman.
+  Если Docker Desktop только что установлен — перезапусти терминал/компьютер.
+  Варианты:
    1) Docker Desktop  https://www.docker.com/products/docker-desktop/
    2) Podman Desktop  https://podman-desktop.io/downloads   (аналог, без лицензии Docker)
    3) совсем без контейнеров — см. SETUP.md, вариант D"

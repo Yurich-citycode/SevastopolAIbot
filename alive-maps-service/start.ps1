@@ -14,6 +14,15 @@ function Die([string]$m)  { Write-Host ""; Write-Host "[x] $m" -ForegroundColor 
 $script:DCBin = $null
 function dc { & $script:DCBin[0] $script:DCBin[1] @args }
 
+# Docker Desktop иногда не попадает в PATH до перезагрузки — ищем по стандартным местам
+foreach ($p in @(
+    "$env:ProgramFiles\Docker\Docker\resources\bin",
+    "$env:LOCALAPPDATA\Programs\Docker\Docker\resources\bin",
+    "$env:ProgramFiles\RedHat\Podman"
+)) {
+  if ((Test-Path $p) -and ($env:Path -notlike "*$p*")) { $env:Path = "$p;$env:Path" }
+}
+
 Say "Sevastopol Alive Maps - локальная карта с живыми маршрутами"
 
 # ---------- 1. Docker / Podman ----------
@@ -28,7 +37,7 @@ if (-not $script:DCBin -and (Get-Command podman -ErrorAction SilentlyContinue)) 
   if ($LASTEXITCODE -eq 0) { $script:DCBin = @('podman','compose') }
 }
 if (-not $script:DCBin) {
-  Die "Не найден ни Docker, ни Podman. Варианты:`n  1) Docker Desktop   https://www.docker.com/products/docker-desktop/`n  2) Podman Desktop   https://podman-desktop.io/downloads   (аналог, без лицензии Docker)`n  3) совсем без контейнеров - см. SETUP.md, вариант D"
+  Die "Не найден ни Docker, ни Podman.`n`n  Если Docker Desktop только что установлен - ПЕРЕЗАГРУЗИ компьютер`n  (или выйди и зайди в аккаунт Windows) и запусти start.bat снова:`n  установщик прописывает docker в PATH только после входа в систему.`n`n  Если Docker Desktop ещё качает Ubuntu/WSL2 - дай ему закончить.`n`n  Другие варианты:`n   1) Docker Desktop   https://www.docker.com/products/docker-desktop/`n   2) Podman Desktop   https://podman-desktop.io/downloads   (аналог, без лицензии Docker)`n   3) Docker внутри Ubuntu (WSL): sudo apt install docker.io`n   4) совсем без контейнеров - см. SETUP.md, вариант D"
 }
 
 $engine = if ($script:DCBin[0] -eq 'podman') { 'podman' } else { 'docker' }
