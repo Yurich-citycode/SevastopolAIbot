@@ -47,11 +47,33 @@ ZONES = {
     "pois": [{"kind": "cafe", "name": "Кофейня «Тест»", "lon": 33.5210, "lat": 44.6100}],
 }
 
+# мои точки из «базы»: одна прямо на маршруте, одна далеко
+MY_POIS = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"name": "Моя кофейня", "kind": "cafe", "category": "Кофе",
+                           "weight": 1.3},
+            "geometry": {"type": "Point", "coordinates": [33.5198, 44.6100]},
+        },
+        {
+            "type": "Feature",
+            "properties": {"name": "Мой музей", "kind": "historic", "category": "Музеи",
+                           "weight": 1.45},
+            "geometry": {"type": "Point", "coordinates": [33.5300, 44.6120]},
+        },
+    ],
+}
+
 tmp = Path(tempfile.mkdtemp(prefix="alive-smoke-"))
 zones_file = tmp / "zones.geojson"
 zones_file.write_text(json.dumps(ZONES), encoding="utf-8")
+pois_file = tmp / "pois.geojson"
+pois_file.write_text(json.dumps(MY_POIS, ensure_ascii=False), encoding="utf-8")
 
 os.environ["ZONES_FILE"] = str(zones_file)
+os.environ["POIS_FILE"] = str(pois_file)
 os.environ["STYLE_FILE"] = str(ROOT / "tiles" / "style.json")
 os.environ["CACHE_TTL"] = "0"
 
@@ -89,6 +111,7 @@ def main() -> int:
         cfg = client.get("/api/config").json()
         check("центр карты", cfg["center"] == [33.5225, 44.6134], cfg["center"])
         check("зоны загружены", cfg["zones"]["count"] == 2, cfg["zones"]["by_kind"])
+        check("мои точки загружены", cfg["own"]["count"] == 2, cfg["own"]["by_kind"])
 
         print("маршруты")
         req = {"start": [33.5170, 44.6100], "end": [33.5235, 44.6100]}
@@ -98,12 +121,15 @@ def main() -> int:
         check("fast — геометрия LineString",
               data["fast"]["geojson"]["geometry"]["type"] == "LineString")
         check("fast без custom model", calls[0]["areas"] == 0, calls[0])
-        check("alive с areas", calls[1]["areas"] == 2, calls[1])
+        check("alive с areas (2 зоны + 2 мои)", calls[1]["areas"] == 4, calls[1])
         check("bonus — парк с названием",
               any(b.get("name") == "Тестовый сквер" for b in data["alive"]["bonuses"]),
               [b.get("name") for b in data["alive"]["bonuses"]])
         check("bonus — кафе рядом", any(b.get("kind") == "cafe" for b in data["alive"]["bonuses"]))
         check("delta посчитан", data["delta"]["distance_m"] == 240, data["delta"])
+        check("моя точка в объяснении",
+              any(b.get("own") for b in data["alive"]["bonuses"]),
+              [b.get("name") for b in data["alive"]["bonuses"]])
 
         print("режимы и валидация")
         zero = client.post("/api/route", json={**req, "mode": "alive", "strength": 0})
@@ -116,6 +142,14 @@ def main() -> int:
         style = client.get("/style.json")
         check("GET /style.json", style.status_code == 200 and "layers" in style.json())
         check("GET /api/zones", len(client.get("/api/zones").json()["features"]) == 2)
+        pois = client.get("/api/pois").json()
+        check("GET /api/pois", len(pois["features"]) == 2)
+        png = client.get("/api/compare.png",
+                         params={"from": "44.6090,33.5185", "to": "44.6105,33.5215"})
+        check("GET /api/compare.png", png.status_code == 200
+              and png.content.startswith(b"\x89PNG"), f"{len(png.content)} байт")
+        bad = client.get("/api/compare.png", params={"from": "ой", "to": "44.6,33.5"})
+        check("png: кривые координаты → 400", bad.status_code == 400)
         index = client.get("/")
         check("index.html", index.status_code == 200 and "maplibre-gl.js" in index.text)
         check("вендоренный MapLibre", client.get("/static/vendor/maplibre-gl.js").status_code == 200)
@@ -124,7 +158,7 @@ def main() -> int:
     if failures:
         print(f"✗ провалено: {len(failures)} — {', '.join(failures)}")
         return 1
-    print("✓ всё зелёное: конфиг, зоны, маршруты, валидация, статика")
+    print("✓ всё зелёное: конфиг, зоны, мои точки, маршруты, картинка, статика")
     return 0
 
 

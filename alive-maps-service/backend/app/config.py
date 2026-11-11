@@ -18,6 +18,8 @@ TS_SOURCE = _env("TS_SOURCE", "sevastopol")
 # Файлы
 DATA_DIR = _env("DATA_DIR", "/data")
 ZONES_FILE = _env("ZONES_FILE", os.path.join(DATA_DIR, "zones.geojson"))
+# мои точки из базы (делает tools/export_pois.py)
+POIS_FILE = _env("POIS_FILE", os.path.join(DATA_DIR, "pois.geojson"))
 STYLE_FILE = _env("STYLE_FILE", "/tiles/style.json")
 
 # Кэш готовых ответов (секунды); 0 — выключить

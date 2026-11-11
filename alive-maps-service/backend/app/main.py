@@ -17,14 +17,18 @@ from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import gh
-from .config import BBOX, CACHE_TTL, CENTER, GH_PROFILE, STYLE_FILE, TS_SOURCE, TS_URL, ZONES_FILE
+from .config import (
+    BBOX, CACHE_TTL, CENTER, GH_PROFILE, POIS_FILE, STYLE_FILE, TS_SOURCE, TS_URL, ZONES_FILE,
+)
+from .pois import POIS
+from .route_png import render_compare
 from .zones import KIND_BONUS, ZONES
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -58,6 +62,7 @@ def _cache_put(key: str, payload: dict) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ZONES.reload(ZONES_FILE)
+    POIS.reload(POIS_FILE)
     app.state.client = httpx.AsyncClient()
     yield
     await app.state.client.aclose()
@@ -100,6 +105,39 @@ def _cache_key(start: list[float], end: list[float], mode: str, strength: float)
     return f"{mode}|{start[0]:.5f},{start[1]:.5f}|{end[0]:.5f},{end[1]:.5f}|{strength:.2f}"
 
 
+def _areas_and_rules(strength: float) -> tuple[dict | None, list[dict]]:
+    """Зоны OSM + мои точки в одном наборе areas для GraphHopper."""
+    features: list[dict] = []
+    rules: list[dict] = []
+
+    zones_areas, zones_rules = ZONES.areas_and_rules(strength=strength)
+    features.extend(zones_areas.get("features") or [])
+    rules.extend(zones_rules)
+
+    own_areas, own_rules = POIS.areas_and_rules(strength=strength)
+    features.extend(own_areas.get("features") or [])
+    rules.extend(own_rules)
+
+    if not features:
+        return None, []
+    return {"type": "FeatureCollection", "features": features}, rules
+
+
+def _explain(coordinates: list[list[float]]) -> list[dict]:
+    """Сначала мои точки (их немного и они именные), потом зоны OSM."""
+    own = POIS.explain(coordinates)
+    zones = ZONES.explain(coordinates)
+    merged: list[dict] = []
+    seen: set[tuple] = set()
+    for item in own + zones:
+        key = (item.get("kind"), item.get("name"))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged[:12]
+
+
 async def _compute(request: Request, start: list[float], end: list[float], mode: str, strength: float) -> dict:
     key = _cache_key(start, end, mode, strength)
     cached = _cache_get(key)
@@ -108,7 +146,7 @@ async def _compute(request: Request, start: list[float], end: list[float], mode:
 
     areas, rules = (None, [])
     if mode == "alive" and strength > 0:
-        areas, rules = ZONES.areas_and_rules(strength=strength)
+        areas, rules = _areas_and_rules(strength)
 
     try:
         result = await gh.route(
@@ -121,7 +159,7 @@ async def _compute(request: Request, start: list[float], end: list[float], mode:
     payload = result.as_dict()
 
     if mode == "alive":
-        payload["bonuses"] = ZONES.explain(result.coordinates)
+        payload["bonuses"] = _explain(result.coordinates)
 
     _cache_put(key, payload)
     return {**payload, "cached": False}
@@ -158,6 +196,12 @@ async def api_compare(req: Point2, request: Request) -> JSONResponse:
     })
 
 
+@app.get("/api/pois")
+async def api_pois() -> JSONResponse:
+    """Мои точки из базы — то, что отличает карту от обычной OSM."""
+    return JSONResponse(POIS.geojson())
+
+
 @app.get("/api/zones")
 async def api_zones() -> JSONResponse:
     return JSONResponse(ZONES.geojson())
@@ -178,6 +222,11 @@ async def api_config(request: Request) -> JSONResponse:
         "center": list(CENTER),
         "bbox": list(BBOX),
         "profile": GH_PROFILE,
+        "own": {
+            "count": POIS.count,
+            "by_kind": POIS.by_kind(),
+            "error": POIS.error,
+        },
         "zones": {
             "count": ZONES.count,
             "by_kind": ZONES.by_kind(),
@@ -189,9 +238,61 @@ async def api_config(request: Request) -> JSONResponse:
     })
 
 
+@app.get("/api/compare.png")
+async def api_compare_png(request: Request, from_: str = Query("", alias="from"),
+                          to: str = "", title: str = "") -> Response:
+    """Та же пара маршрутов, но картинкой — для бота.
+
+    Координаты в query: from=lat,lon&to=lat,lon (как их присылает Telegram).
+    """
+    try:
+        start_lat, start_lon = _parse_latlon(from_, "from")
+        end_lat, end_lon = _parse_latlon(to, "to")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    start = _check_point("старт", [start_lon, start_lat])
+    end = _check_point("финиш", [end_lon, end_lat])
+
+    fast = await _compute(request, start, end, "fast", 0.0)
+    alive = await _compute(request, start, end, "alive", 1.0)
+
+    try:
+        png = render_compare(
+            fast, alive,
+            zones_geojson=ZONES.geojson(),
+            pois_geojson=POIS.geojson(),
+            title=title or None,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    return Response(
+        png,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Route-Minutes": f"{round(fast['time_s'] / 60)}/{round(alive['time_s'] / 60)}",
+        },
+    )
+
+
+def _parse_latlon(value: str, name: str) -> tuple[float, float]:
+    """«44.61,33.52» → (lat, lon). Порядок именно такой, как в Telegram."""
+    text = (value or "").replace(" ", "")
+    if "," not in text:
+        raise ValueError(f"{name}: нужен формат lat,lon")
+    left, right = text.split(",", 1)
+    try:
+        lat, lon = float(left), float(right)
+    except ValueError as exc:
+        raise ValueError(f"{name}: координаты должны быть числами") from exc
+    return lat, lon
+
+
 @app.get("/health")
 async def health() -> dict:
-    return {"ok": True, "zones": ZONES.count}
+    return {"ok": True, "zones": ZONES.count, "own": POIS.count}
 
 
 @app.get("/api/health")
@@ -200,6 +301,8 @@ async def api_health(request: Request) -> dict:
         "ok": True,
         "zones": ZONES.count,
         "zones_error": ZONES.error,
+        "own": POIS.count,
+        "own_error": POIS.error,
         "graphhopper": await gh.health(request.app.state.client),
     }
 

@@ -8,7 +8,7 @@ BUILD := $(DC) --profile build run --rm --build tools
 DATA_DIR ?= data
 PY ?= python3
 
-.PHONY: help start data zones fonts tiles up down logs ps clean check smoke
+.PHONY: help start data zones pois fonts tiles up down logs ps clean check smoke
 
 help:
 	@echo "Sevastopol Alive Maps"
@@ -16,6 +16,7 @@ help:
 	@echo "  make start   всё сразу: данные → зоны → шрифты → тайлы → запуск"
 	@echo "  make data    скачать OSM-данные Крыма/Севастополя (~39 МБ)"
 	@echo "  make zones   собрать живые зоны (парки/кафе/набережные)"
+	@echo "  make pois    мои точки из базы бота → data/pois.geojson"
 	@echo "  make fonts   скачать шрифты для подписей"
 	@echo "  make tiles   собрать тайлы (Planetiler, 3-10 мин)"
 	@echo "  make up      поднять стек → http://localhost:8080"
@@ -26,6 +27,10 @@ help:
 
 start:
 	bash start.sh
+
+# ---------- мои точки из базы бота (на машине, нужен pandas) ----------
+pois:
+	$(PY) tools/export_pois.py
 
 # ---------- подготовка данных (в контейнере, локальный Python не нужен) ----------
 
