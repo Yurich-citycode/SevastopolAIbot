@@ -1,0 +1,288 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Интерфейс тест-бота на виджетах (Bot API 10.4).
+  Один и тот же HTML для всех экранов: при загрузке виджет спрашивает у бота
+  «boot», бот отвечает данными экрана (до 1024 байт), виджет рисует.
+  Любое нажатие — снова запрос к боту и перерисовка в этом же сообщении.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 12px 12px 14px; color: #eef2e6;
+    font: 14px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(120% 90% at 50% 0%, #1a1f12 0%, #101208 60%, #0c0e07 100%);
+    min-height: 100vh; max-width: 390px; margin: 0 auto;
+  }
+  .bar { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .kick { font: 700 10px/1 -apple-system, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #7d8574; }
+  h1 { margin: 0; font-size: 17px; line-height: 1.2; letter-spacing: -.01em; }
+  .sub { margin: 2px 0 0; font-size: 12px; color: #8b9280; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; min-height: 74px;
+    border: 1px solid #262b1e; border-radius: 14px; background: linear-gradient(160deg, #1b2013, #14170e);
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .tile:active { transform: scale(.975); border-color: #c6f432; }
+  .tile b { font-size: 13px; font-weight: 600; }
+  .tile span { font-size: 11px; color: #8b9280; }
+  .tile i { font-style: normal; font-size: 17px; line-height: 1; }
+
+  .row {
+    display: grid; grid-template-columns: 22px 1fr 10px; gap: 10px; align-items: center;
+    padding: 10px 11px; margin-bottom: 6px; border: 1px solid #262b1e; border-radius: 12px;
+    background: #171a12; transition: border-color .12s ease, transform .12s ease;
+  }
+  .row:active { transform: scale(.985); border-color: #c6f432; }
+  .row .i { font-size: 15px; text-align: center; }
+  .row b { display: block; font-size: 13.5px; font-weight: 600; }
+  .row span { display: block; font-size: 11.5px; color: #8b9280; margin-top: 2px; }
+  .row .ch { color: #4d5546; font-size: 15px; }
+
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
+  .pg {
+    flex: 0 0 auto; padding: 7px 14px; border-radius: 10px; border: 1px solid #2c321f;
+    background: #1a1e12; color: #c6f432; font-size: 13px; font-weight: 600;
+  }
+  .pg[disabled] { color: #4d5546; border-color: #23271c; }
+  .pgt { font-size: 11px; color: #7d8574; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+  .chip { padding: 4px 9px; border-radius: 999px; border: 1px solid #2c321f; font-size: 10.5px; color: #b9c0ac; }
+  .desc { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: #cfd6c4; white-space: pre-line;
+          max-height: 4.4em; overflow: hidden; }
+  .meta { margin: 10px 0 0; display: grid; gap: 4px; font-size: 11.5px; color: #8b9280; }
+  .meta b { color: #b9c0ac; font-weight: 600; }
+
+  .acts { display: flex; gap: 8px; margin-top: 12px; }
+  .act {
+    flex: 1; padding: 10px; border-radius: 12px; text-align: center; font-size: 12.5px; font-weight: 600;
+    border: 1px solid #2c321f; background: #1a1e12; color: #dfe6d3;
+  }
+  .act.pri { border-color: rgba(198,244,50,.55); color: #c6f432; background: rgba(198,244,50,.08); }
+  .act:active { transform: scale(.98); }
+
+  .xp { margin-top: 12px; height: 7px; border-radius: 4px; background: #23271c; overflow: hidden; }
+  .xp i { display: block; height: 100%; background: linear-gradient(90deg, #8fbf1f, #c6f432); border-radius: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { padding: 10px; border-radius: 12px; border: 1px solid #262b1e; background: #171a12; text-align: center; }
+  .stat b { display: block; font-size: 16px; color: #c6f432; }
+  .stat span { font-size: 10px; color: #8b9280; }
+
+  .note { margin-top: 10px; font-size: 11px; line-height: 1.4; color: #7d8574; }
+  .skel { height: 12px; border-radius: 6px; background: #1b2013; margin-bottom: 8px; animation: p 1.2s ease-in-out infinite; }
+  @keyframes p { 50% { opacity: .45; } }
+  .err { padding: 10px; border-radius: 12px; border: 1px solid rgba(255,120,92,.4); background: rgba(255,120,92,.08);
+         font-size: 12px; color: #ffb9a5; }
+</style>
+
+<script>
+  window.TelegramWidget = { request: function (d) {
+    var map = {"boot": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "m": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "c:food": {"k": "menu", "up": "Где поесть", "t": "Что ищем?", "i": [["l:food:coffee", "☕", "Кофе", "51 мест"], ["l:food:rest", "🍷", "Рестораны", "26 мест"], ["l:food:cafe", "🥐", "Кафе", "24 мест"], ["l:food:bakery", "🥖", "Пекарни", "8 мест"], ["l:food:sweets", "🍰", "Кондитерские", "31 мест"], ["l:food:delivery", "🛵", "Доставки", "5 мест"]], "b": [["m", "‹ меню"]], "n": "Цифры — сколько мест в базе по этому разделу."}, "l:food:coffee:0": {"k": "list", "up": "Где поесть", "t": "Кофе", "s": "51 мест", "i": [["o:f0", "🍽", "Кофе в Окнах", "Кофе · Корабелка"], ["o:f1", "🍽", "Кофе в Окнах", "Кофе · Центр"], ["o:f2", "🍽", "Кофе в Окнах", "Кофе · Центр"], ["o:f3", "🍽", "Кофе в Окнах", "Кофе · Центр"], ["o:f4", "🍽", "Кофе в Окнах", "Кофе · Победа"]], "pg": "1–5 из 51", "next": "l:food:coffee:1"}, "c:places": {"k": "list", "up": "Севастополь", "t": "Локации", "s": "53 мест", "i": [["o:p0", "📍", "Фиолент", "Закаты · Фиолент (Маяк)"], ["o:p3", "📍", "Яшмовый Пляж", "Пляжи · Фиолент, Георгиевский монастырь"], ["o:p4", "📍", "Серебряный Пляж", "Пляжи · Балаклава"], ["o:p5", "📍", "Золотой Пляж", "Пляжи · Балаклава"], ["o:p6", "📍", "Инжир", "Пляжи · Мыс Айа"]], "pg": "1–5 из 53", "next": "l:places::1"}, "c:events": {"k": "list", "up": "Афиша", "t": "События", "s": "49 мест", "i": [["o:e0", "🎭", "🍽 Летний гастроужин с итальянским акценто…", "🗓 24 июля (пт), 19:00"], ["o:e1", "🎭", "🎭 Гласные чтения «Дон Жуан» с отцом Влади…", "🗓 4 июля (сегодня), 14:00"], ["o:e2", "🎭", "🎭 Ревизор", "🗓 4 августа (вт), 18:00"], ["o:e3", "🎭", "🎭 Олимпийцы", "🗓 19 июля (вс)"], ["o:e4", "🎭", "🎵 Гитара у костра на Али-Баир", "🗓 18 июля (сб)"]], "pg": "1–5 из 49", "next": "l:events::1"}, "c:routes": {"k": "list", "up": "Пешком", "t": "Маршруты", "s": "7 мест", "i": [["o:r0", "🥾", "Большая Севастопольская тропа", "117 км (этап Балаклава–Ласпи ≈14 км) · Сред…"], ["o:r1", "🥾", "Автокольцо: Севастополь — Ласпи — Байдарс…", "≈80 км · Лёгкая"], ["o:r2", "🥾", "Велопроменад: Парк Победы — Омега — Камыш…", "8–10 км · Лёгкая"], ["o:r3", "🥾", "Катер Артбухта — Учкуевка", "15–20 минут · Лёгкая"], ["o:r4", "🥾", "800 ступеней к Яшмовому пляжу", "1,5–2 часа · Средняя"]], "pg": "1–5 из 7", "next": "l:routes::1"}, "pp": {"k": "pass", "t": "Гость · 0 XP", "s": "Ты", "pct": 3, "st": [["0", "открыто"], ["0", "маршрутов"], ["0", "XP"]], "b": [["m", "‹ меню"]], "n": "XP капает за просмотр мест и маршрутов. Это проба, не боевая статистика."}, "c:map": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "rp:0": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "rp:1": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "rp:2": {"k": "menu", "t": "Куда пойдём?", "s": "Всё внутри одного сообщения", "i": [["c:food", "🍽", "Где поесть", "145 мест"], ["c:places", "📍", "Локации", "53 мест"], ["c:events", "🎭", "События", "49 в ленте"], ["c:routes", "🥾", "Маршруты", "7 идей"], ["pp", "🛂", "Паспорт", "XP и ранг"], ["c:map", "🗺", "Живая карта", "маршрут по городу"]], "n": "Нажатие меняет этот экран, новых сообщений не будет."}, "o:f0": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Корабелка"], "s": "ул. Розы Люксембург 40/10", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "ул. Розы Люксембург 40/10"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:f1": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Центр"], "s": "ул. Большая Морская 8", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "ул. Большая Морская 8"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:f2": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Центр"], "s": "ул. Советская 12", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "ул. Советская 12"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:f3": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Центр"], "s": "ул. Пушкина 4", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "ул. Пушкина 4"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:f4": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Победа"], "s": "Проспект Победы 44/1", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "Проспект Победы 44/1"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:f5": {"k": "card", "t": "Кофе в Окнах", "b": [["l:food:coffee:0", "‹ назад"]], "ch": ["Кофе", "Центр"], "s": "ул. Очаковцев 19", "d": "Кофе с качеством, которое чувствуется в каждой чашке Уникальные лоты со всего мира Зерно и дрипы для дома", "m": [["Меню", "ЧЕРНЫЙ КОФЕ Эспрессо — 130р 20мл / 170р 40мл Американо — 130р 180мл / 170р 250мл Фильтр —…"], ["Адрес", "ул. Очаковцев 19"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p0": {"k": "card", "t": "Фиолент", "b": [["c:places", "‹ назад"]], "ch": ["Закаты"], "s": "Фиолент (Маяк)", "d": "Один из самых красивых закатов города. Солнце буквально растворяется в море между скалами.", "m": [["Ориентир", "Фиолент (Маяк)"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p3": {"k": "card", "t": "Яшмовый Пляж", "b": [["c:places", "‹ назад"]], "ch": ["Пляжи"], "s": "Фиолент, Георгиевский монастырь", "d": "Один из самых красивых пляжей Севастополя с прозрачной водой, вулканическими скалами и атмосферой настоящего южного побережья. Идеален для купания и фото.", "m": [["Ориентир", "Фиолент, Георгиевский монастырь"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p4": {"k": "card", "t": "Серебряный Пляж", "b": [["c:places", "‹ назад"]], "ch": ["Пляжи"], "s": "Балаклава", "d": "Уединённая бухта возле Балаклавы с чистой водой и живописными скалами. Подходит для спокойного отдыха вдали от городского шума.", "m": [["Ориентир", "Балаклава"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p5": {"k": "card", "t": "Золотой Пляж", "b": [["c:places", "‹ назад"]], "ch": ["Пляжи"], "s": "Балаклава", "d": "Просторный пляж среди скал и моря, куда многие приезжают за ощущением дикого Крыма и красивыми морскими пейзажами.", "m": [["Ориентир", "Балаклава"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p6": {"k": "card", "t": "Инжир", "b": [["c:places", "‹ назад"]], "ch": ["Пляжи"], "s": "Мыс Айа", "d": "Легендарное место среди туристов и любителей природы. Бирюзовая вода, сосны и атмосфера полного отключения от города.", "m": [["Ориентир", "Мыс Айа"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:p7": {"k": "card", "t": "Баунти", "b": [["c:places", "‹ назад"]], "ch": ["Пляжи"], "s": "Фиолент", "d": "Один из самых фотогеничных пляжей Фиолента с лазурной водой и высокими скалами вокруг.", "m": [["Ориентир", "Фиолент"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r0": {"k": "card", "t": "Большая Севастопольская тропа", "b": [["c:routes", "‹ назад"]], "ch": ["Пешие", "Средняя"], "s": "117 км (этап Балаклава–Ласпи ≈14 км)", "d": "Маркированный маршрут вокруг города: Балаклава → Фиолент → Ласпи → Байдары → Черноречье. Самый популярный этап Балаклава–Ласпи занимает 5–6 часов.", "m": [["Сложность", "Средняя"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r1": {"k": "card", "t": "Автокольцо: Севастополь — Ласпи — Байдарские ворота — Форос", "b": [["c:routes", "‹ назад"]], "ch": ["Авто", "Лёгкая"], "s": "≈80 км", "d": "Смотровые площадки Ласпи и Байдарских ворот, серпантины Южного берега, спуск к морю в Ласпи.", "m": [["Сложность", "Лёгкая"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r2": {"k": "card", "t": "Велопроменад: Парк Победы — Омега — Камышовая", "b": [["c:routes", "‹ назад"]], "ch": ["Велосипед", "Лёгкая"], "s": "8–10 км", "d": "Ровный городской маршрут по набережной и проспекту Гагарина вдоль бухт, велодорожки в парке Победы.", "m": [["Сложность", "Лёгкая"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r3": {"k": "card", "t": "Катер Артбухта — Учкуевка", "b": [["c:routes", "‹ назад"]], "ch": ["Вода", "Лёгкая"], "s": "15–20 минут", "d": "Морская прогулка через Севастопольскую бухту на песчаный пляж Учкуевки, виды на город с воды.", "m": [["Сложность", "Лёгкая"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r4": {"k": "card", "t": "800 ступеней к Яшмовому пляжу", "b": [["c:routes", "‹ назад"]], "ch": ["Пешие", "Средняя"], "s": "1,5–2 часа", "d": "Спуск от Георгиевского монастыря по лестнице к Яшмовому пляжу и Скале Святого Явления. Обратно — подъём в гору.", "m": [["Сложность", "Средняя"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}, "o:r5": {"k": "card", "t": "Фиолент — Балаклава", "b": [["c:routes", "‹ назад"]], "ch": ["Авто", "Лёгкая"], "s": "≈30 км", "d": "Побережье: мыс Фиолент, Георгиевский монастырь, Серебряный и Золотой пляжи, набережная Балаклавы.", "m": [["Сложность", "Лёгкая"]], "n": "Нажми «назад» — вернёшься к списку в этом же сообщении."}};
+    var screen = map[d] || map['boot'];
+    return Promise.resolve({ result: JSON.stringify(screen) });
+  } };
+</script>
+<div id="root"></div>
+
+<script>
+  var root = document.getElementById("root");
+  var SCREEN = null;
+  var BUSY = false;
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function esc(value) {
+    return String(value == null ? "" : value);
+  }
+
+  function request(data) {
+    if (!window.TelegramWidget || !window.TelegramWidget.request) {
+      return Promise.reject(new Error("нет TelegramWidget"));
+    }
+    return window.TelegramWidget.request(data).then(function (answer) {
+      var raw = answer && answer.result;
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    });
+  }
+
+  function go(data) {
+    if (BUSY) return;
+    BUSY = true;
+    request(data).then(function (screen) {
+      BUSY = false;
+      if (screen) render(screen);
+    }).catch(function () {
+      BUSY = false;
+      showError("Не дозвонился до бота. Нажми «обновить».");
+    });
+  }
+
+  function showError(text) {
+    root.innerHTML = "";
+    root.appendChild(el("div", "err", text));
+    var acts = el("div", "acts");
+    var btn = el("div", "act pri", "обновить");
+    btn.onclick = function () { boot(); };
+    acts.appendChild(btn);
+    root.appendChild(acts);
+  }
+
+  function header(kicker, title, sub) {
+    var wrap = el("div");
+    var bar = el("div", "bar");
+    bar.appendChild(el("span", "kick", kicker));
+    wrap.appendChild(bar);
+    wrap.appendChild(el("h1", null, esc(title)));
+    if (sub) wrap.appendChild(el("p", "sub", esc(sub)));
+    return wrap;
+  }
+
+  function tile(action, icon, title, sub) {
+    var node = el("div", "tile");
+    node.appendChild(el("i", null, icon));
+    node.appendChild(el("b", null, esc(title)));
+    node.appendChild(el("span", null, esc(sub)));
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function row(action, icon, title, sub) {
+    var node = el("div", "row");
+    node.appendChild(el("span", "i", icon));
+    var box = el("div");
+    box.appendChild(el("b", null, esc(title)));
+    if (sub) box.appendChild(el("span", null, esc(sub)));
+    node.appendChild(box);
+    node.appendChild(el("span", "ch", "›"));
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function action(action, label, primary) {
+    var node = el("div", "act" + (primary ? " pri" : ""), label);
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function render(screen) {
+    SCREEN = screen;
+    root.innerHTML = "";
+
+    if (screen.k === "menu") {
+      root.appendChild(header("Севастополь", screen.t, screen.s));
+      var tiles = el("div", "tiles");
+      (screen.i || []).forEach(function (item) {
+        tiles.appendChild(tile(item[0], item[1], item[2], item[3]));
+      });
+      root.appendChild(tiles);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "list") {
+      root.appendChild(header(screen.up || "Раздел", screen.t, screen.s));
+      (screen.i || []).forEach(function (item) {
+        root.appendChild(row(item[0], item[1], item[2], item[3]));
+      });
+      if (!screen.i || !screen.i.length) root.appendChild(el("p", "sub", "пока пусто"));
+      var pager = el("div", "pager");
+      var prev = el("div", "pg", "‹");
+      var next = el("div", "pg", "›");
+      if (!screen.prev) prev.setAttribute("disabled", "disabled");
+      if (!screen.next) next.setAttribute("disabled", "disabled");
+      prev.onclick = function () { if (screen.prev) go(screen.prev); };
+      next.onclick = function () { if (screen.next) go(screen.next); };
+      var label = el("span", "pgt", screen.pg || "");
+      pager.appendChild(prev);
+      pager.appendChild(label);
+      pager.appendChild(next);
+      root.appendChild(pager);
+      return;
+    }
+
+    if (screen.k === "card") {
+      root.appendChild(header(screen.up || "Карточка", screen.t, screen.s));
+      if (screen.ch && screen.ch.length) {
+        var chips = el("div", "chips");
+        screen.ch.forEach(function (text) { chips.appendChild(el("span", "chip", esc(text))); });
+        root.appendChild(chips);
+      }
+      if (screen.d) root.appendChild(el("p", "desc", esc(screen.d)));
+      if (screen.m && screen.m.length) {
+        var meta = el("div", "meta");
+        screen.m.forEach(function (pair) {
+          var line = el("div");
+          line.appendChild(el("b", null, esc(pair[0]) + ": "));
+          line.appendChild(document.createTextNode(esc(pair[1])));
+          meta.appendChild(line);
+        });
+        root.appendChild(meta);
+      }
+      var acts = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "pass") {
+      root.appendChild(header("City Passport", screen.t, screen.s));
+      root.appendChild(el("div", "xp")).appendChild(el("i")).style.width = (screen.pct || 0) + "%";
+      var stats = el("div", "stats");
+      (screen.st || []).forEach(function (item) {
+        var box = el("div", "stat");
+        box.appendChild(el("b", null, esc(item[0])));
+        box.appendChild(el("span", null, esc(item[1])));
+        stats.appendChild(box);
+      });
+      root.appendChild(stats);
+      var acts2 = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts2.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts2);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "route") {
+      root.appendChild(header("Маршрут", screen.t, screen.s));
+      (screen.r || []).forEach(function (route, index) {
+        var node = row("rp:" + index, route.i || "•", route.t,
+          route.min + " мин · " + String(route.km).replace(".", ",") + " км · " + route.sc + "/100");
+        if (index === screen.sel) node.style.borderColor = "#c6f432";
+        root.appendChild(node);
+      });
+      var acts3 = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts3.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts3);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    showError("Неизвестный экран");
+  }
+
+  function boot() {
+    root.innerHTML = "";
+    for (var i = 0; i < 3; i++) root.appendChild(el("div", "skel"));
+    go("boot");
+  }
+
+  boot();
+</script>
