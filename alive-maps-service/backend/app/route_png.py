@@ -23,6 +23,7 @@ GRID = (26, 31, 37)
 FAST = (154, 164, 178)
 ALIVE = (182, 243, 107)
 ALIVE_DARK = (24, 34, 20)
+MOST = (255, 198, 92)      # «самый живой» — янтарный, чтобы не путать с живым
 TEXT = (232, 236, 241)
 MUTED = (150, 160, 172)
 
@@ -151,6 +152,7 @@ def _polygon_points(geom, project: Projection) -> list[tuple[float, float]]:
 def render_compare(
     fast: dict[str, Any],
     alive: dict[str, Any],
+    most: dict[str, Any] | None = None,
     zones_geojson: dict[str, Any] | None = None,
     pois_geojson: dict[str, Any] | None = None,
     size: tuple[int, int] = (1080, 810),
@@ -159,10 +161,11 @@ def render_compare(
     """Собирает PNG: зоны, оба маршрута, точки старта и финиша, подписи."""
     fast_coords = _route_coords(fast)
     alive_coords = _route_coords(alive)
-    if len(fast_coords) < 2 and len(alive_coords) < 2:
+    most_coords = _route_coords(most or {})
+    if len(fast_coords) < 2 and len(alive_coords) < 2 and len(most_coords) < 2:
         raise ValueError("нечего рисовать: маршруты пустые")
 
-    routes = [coords for coords in (fast_coords, alive_coords) if len(coords) >= 2]
+    routes = [coords for coords in (fast_coords, alive_coords, most_coords) if len(coords) >= 2]
 
     image = Image.new("RGB", size, BG)
     draw = ImageDraw.Draw(image, "RGBA")
@@ -206,10 +209,14 @@ def render_compare(
         points = [project(x, y) for x, y in alive_coords]
         draw.line(points, fill=ALIVE_DARK, width=11, joint="curve")
         draw.line(points, fill=ALIVE, width=6, joint="curve")
+    # самый живой — тонкий пунктир поверх: видно, где он уходит в сторону
+    if len(most_coords) >= 2 and most_coords != alive_coords:
+        _dashed(draw, [project(x, y) for x, y in most_coords], fill=MOST, width=4, dash=9, gap=7)
 
     # старт и финиш
-    start = (fast_coords or alive_coords)[0]
-    end = (fast_coords or alive_coords)[-1]
+    anchor = alive_coords or most_coords or fast_coords
+    start = anchor[0]
+    end = anchor[-1]
     for (lon, lat), letter, fill in ((start, "A", (255, 255, 255)), (end, "B", ALIVE)):
         x, y = project(lon, lat)
         draw.ellipse([x - 13, y - 13, x + 13, y + 13], fill=(13, 16, 19, 255),
@@ -229,20 +236,25 @@ def render_compare(
     def fmt(payload: dict) -> str:
         minutes = round(float(payload.get("time_s") or 0) / 60)
         km = float(payload.get("distance_m") or 0) / 1000.0
-        return f"{minutes} мин · {km:.1f} км"
+        text = f"{minutes} мин · {km:.1f} км"
+        points = (payload.get("score") or {}).get("score")
+        if points is not None:
+            text += f" · {points}/100"
+        return text
 
-    lines = [
-        ("быстрый", FAST, fmt(fast)),
-        ("живой", ALIVE, fmt(alive)),
-    ]
+    lines = [("быстрый", FAST, fmt(fast)), ("живой", ALIVE, fmt(alive))]
+    if len(most_coords) >= 2 and most_coords != alive_coords:
+        lines.append(("живее", MOST, fmt(most or {})))
 
     box_h = 30 + len(lines) * 30
-    box = [(24, size[1] - box_h - 22), (330, size[1] - 22)]
+    box = [(24, size[1] - box_h - 22), (420, size[1] - 22)]
     draw.rectangle(box, fill=(13, 16, 19, 220), outline=(60, 68, 78, 255), width=1)
     y = box[0][1] + 12
     for label, color, value in lines:
         if label == "быстрый":
             _dashed(draw, [(40, y + 10), (66, y + 10)], fill=color, width=4, dash=6, gap=5)
+        elif label == "живее":
+            _dashed(draw, [(40, y + 10), (66, y + 10)], fill=color, width=4, dash=5, gap=6)
         else:
             draw.line([(40, y + 10), (66, y + 10)], fill=color, width=4)
         draw.text((76, y), f"{label}: {value}", fill=TEXT, font=font_row)

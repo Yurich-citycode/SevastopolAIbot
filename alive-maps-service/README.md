@@ -210,7 +210,7 @@ POST /api/route
 | Метод | Что делает |
 |---|---|
 | `POST /api/route` | один маршрут (`mode`: `fast` \| `alive`, `strength` 0…3) |
-| `POST /api/compare` | оба сразу + блок `delta` (разница по времени и метрам) |
+| `POST /api/compare` | три варианта (`fast`, `alive`, `most_alive`), балл живости 0–100 с разбивкой, блоки `delta` и `delta_most` |
 | `GET /api/pois` | мои точки из базы (GeoJSON) |
 | `GET /api/compare.png?from=lat,lon&to=lat,lon` | та же пара маршрутов картинкой — для бота |
 | `GET /api/zones` | GeoJSON живых зон (фронтенд рисует по кнопке «зоны») |

@@ -47,6 +47,7 @@ class Zones:
         self._features: list[dict[str, Any]] = []   # только Polygon
         self._shapes: list[tuple[Any, str, str | None]] = []  # (geometry, kind, name)
         self._pois: list[dict[str, Any]] = []       # именованные точки для объяснений
+        self._unions: dict[str, Any] | None = None  # объединения полигонов по видам
         self._error: str | None = None
 
     # ---------- загрузка ----------
@@ -117,6 +118,7 @@ class Zones:
             self._features = features
             self._shapes = shapes
             self._pois = pois
+            self._unions = None
             self._error = None
             self._mtime = mtime
 
@@ -182,6 +184,41 @@ class Zones:
         return {"type": "FeatureCollection", "features": features}, rules
 
     # ---------- объяснение маршрута ----------
+
+    def _kind_unions(self) -> dict[str, Any]:
+        """Один объединённый полигон на каждый вид зоны (считается один раз)."""
+        if self._unions is None:
+            groups: dict[str, list[Any]] = {}
+            for shp, kind, _name in self._shapes:
+                groups.setdefault(kind, []).append(shp)
+            self._unions = {kind: unary_union(parts) for kind, parts in groups.items()}
+        return self._unions
+
+    def coverage(self, coordinates: list[list[float]], buffer_deg: float = 0.00023) -> dict:
+        """Сколько метров маршрута проходит внутри зон каждого вида.
+
+        Возвращает {"total": метры маршрута, "by_kind": {вид: метры}}.
+        Метры внутри зоны считаются по коридору вокруг линии: так честнее,
+        чем «попал/не попал» — тропинка рядом с парком тоже считается.
+        """
+        if len(coordinates) < 2:
+            return {"total": 0.0, "by_kind": {}}
+        line = LineString([(float(x), float(y)) for x, y in coordinates])
+        corridor = line.buffer(buffer_deg)
+        total = line.length * 111_000
+        by_kind: dict[str, float] = {}
+        for kind, union in self._kind_unions().items():
+            try:
+                part = corridor.intersection(union)
+            except Exception:  # noqa: BLE001 — битая геометрия не должна ломать маршрут
+                continue
+            if part.is_empty:
+                continue
+            # площадь пересечения (градусы²) → метры² → длина (делим на ширину коридора)
+            meters = part.area * 111_000 / (2 * buffer_deg)
+            if meters > 0:
+                by_kind[kind] = min(meters, total)
+        return {"total": total, "by_kind": by_kind}
 
     def explain(self, coordinates: list[list[float]], buffer_deg: float = 0.00023) -> list[dict]:
         """Что хорошего на маршруте: список пройденных зон с длиной в метрах."""
