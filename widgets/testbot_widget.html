@@ -1,0 +1,281 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Интерфейс тест-бота на виджетах (Bot API 10.4).
+  Один и тот же HTML для всех экранов: при загрузке виджет спрашивает у бота
+  «boot», бот отвечает данными экрана (до 1024 байт), виджет рисует.
+  Любое нажатие — снова запрос к боту и перерисовка в этом же сообщении.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 12px 12px 14px; color: #eef2e6;
+    font: 14px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(120% 90% at 50% 0%, #1a1f12 0%, #101208 60%, #0c0e07 100%);
+    min-height: 100vh;
+  }
+  .bar { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .kick { font: 700 10px/1 -apple-system, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #7d8574; }
+  h1 { margin: 0; font-size: 17px; line-height: 1.2; letter-spacing: -.01em; }
+  .sub { margin: 2px 0 0; font-size: 12px; color: #8b9280; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; min-height: 74px;
+    border: 1px solid #262b1e; border-radius: 14px; background: linear-gradient(160deg, #1b2013, #14170e);
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .tile:active { transform: scale(.975); border-color: #c6f432; }
+  .tile b { font-size: 13px; font-weight: 600; }
+  .tile span { font-size: 11px; color: #8b9280; }
+  .tile i { font-style: normal; font-size: 17px; line-height: 1; }
+
+  .row {
+    display: grid; grid-template-columns: 22px 1fr 10px; gap: 10px; align-items: center;
+    padding: 10px 11px; margin-bottom: 6px; border: 1px solid #262b1e; border-radius: 12px;
+    background: #171a12; transition: border-color .12s ease, transform .12s ease;
+  }
+  .row:active { transform: scale(.985); border-color: #c6f432; }
+  .row .i { font-size: 15px; text-align: center; }
+  .row b { display: block; font-size: 13.5px; font-weight: 600; }
+  .row span { display: block; font-size: 11.5px; color: #8b9280; margin-top: 2px; }
+  .row .ch { color: #4d5546; font-size: 15px; }
+
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
+  .pg {
+    flex: 0 0 auto; padding: 7px 14px; border-radius: 10px; border: 1px solid #2c321f;
+    background: #1a1e12; color: #c6f432; font-size: 13px; font-weight: 600;
+  }
+  .pg[disabled] { color: #4d5546; border-color: #23271c; }
+  .pgt { font-size: 11px; color: #7d8574; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+  .chip { padding: 4px 9px; border-radius: 999px; border: 1px solid #2c321f; font-size: 10.5px; color: #b9c0ac; }
+  .desc { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: #cfd6c4; white-space: pre-line;
+          max-height: 4.4em; overflow: hidden; }
+  .meta { margin: 10px 0 0; display: grid; gap: 4px; font-size: 11.5px; color: #8b9280; }
+  .meta b { color: #b9c0ac; font-weight: 600; }
+
+  .acts { display: flex; gap: 8px; margin-top: 12px; }
+  .act {
+    flex: 1; padding: 10px; border-radius: 12px; text-align: center; font-size: 12.5px; font-weight: 600;
+    border: 1px solid #2c321f; background: #1a1e12; color: #dfe6d3;
+  }
+  .act.pri { border-color: rgba(198,244,50,.55); color: #c6f432; background: rgba(198,244,50,.08); }
+  .act:active { transform: scale(.98); }
+
+  .xp { margin-top: 12px; height: 7px; border-radius: 4px; background: #23271c; overflow: hidden; }
+  .xp i { display: block; height: 100%; background: linear-gradient(90deg, #8fbf1f, #c6f432); border-radius: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { padding: 10px; border-radius: 12px; border: 1px solid #262b1e; background: #171a12; text-align: center; }
+  .stat b { display: block; font-size: 16px; color: #c6f432; }
+  .stat span { font-size: 10px; color: #8b9280; }
+
+  .note { margin-top: 10px; font-size: 11px; line-height: 1.4; color: #7d8574; }
+  .skel { height: 12px; border-radius: 6px; background: #1b2013; margin-bottom: 8px; animation: p 1.2s ease-in-out infinite; }
+  @keyframes p { 50% { opacity: .45; } }
+  .err { padding: 10px; border-radius: 12px; border: 1px solid rgba(255,120,92,.4); background: rgba(255,120,92,.08);
+         font-size: 12px; color: #ffb9a5; }
+</style>
+
+<div id="root"></div>
+
+<script>
+  var root = document.getElementById("root");
+  var SCREEN = null;
+  var BUSY = false;
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function esc(value) {
+    return String(value == null ? "" : value);
+  }
+
+  function request(data) {
+    if (!window.TelegramWidget || !window.TelegramWidget.request) {
+      return Promise.reject(new Error("нет TelegramWidget"));
+    }
+    return window.TelegramWidget.request(data).then(function (answer) {
+      var raw = answer && answer.result;
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    });
+  }
+
+  function go(data) {
+    if (BUSY) return;
+    BUSY = true;
+    request(data).then(function (screen) {
+      BUSY = false;
+      if (screen) render(screen);
+    }).catch(function () {
+      BUSY = false;
+      showError("Не дозвонился до бота. Нажми «обновить».");
+    });
+  }
+
+  function showError(text) {
+    root.innerHTML = "";
+    root.appendChild(el("div", "err", text));
+    var acts = el("div", "acts");
+    var btn = el("div", "act pri", "обновить");
+    btn.onclick = function () { boot(); };
+    acts.appendChild(btn);
+    root.appendChild(acts);
+  }
+
+  function header(kicker, title, sub) {
+    var wrap = el("div");
+    var bar = el("div", "bar");
+    bar.appendChild(el("span", "kick", kicker));
+    wrap.appendChild(bar);
+    wrap.appendChild(el("h1", null, esc(title)));
+    if (sub) wrap.appendChild(el("p", "sub", esc(sub)));
+    return wrap;
+  }
+
+  function tile(action, icon, title, sub) {
+    var node = el("div", "tile");
+    node.appendChild(el("i", null, icon));
+    node.appendChild(el("b", null, esc(title)));
+    node.appendChild(el("span", null, esc(sub)));
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function row(action, icon, title, sub) {
+    var node = el("div", "row");
+    node.appendChild(el("span", "i", icon));
+    var box = el("div");
+    box.appendChild(el("b", null, esc(title)));
+    if (sub) box.appendChild(el("span", null, esc(sub)));
+    node.appendChild(box);
+    node.appendChild(el("span", "ch", "›"));
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function action(action, label, primary) {
+    var node = el("div", "act" + (primary ? " pri" : ""), label);
+    node.onclick = function () { go(action); };
+    return node;
+  }
+
+  function render(screen) {
+    SCREEN = screen;
+    root.innerHTML = "";
+
+    if (screen.k === "menu") {
+      root.appendChild(header("Севастополь", screen.t, screen.s));
+      var tiles = el("div", "tiles");
+      (screen.i || []).forEach(function (item) {
+        tiles.appendChild(tile(item[0], item[1], item[2], item[3]));
+      });
+      root.appendChild(tiles);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "list") {
+      root.appendChild(header(screen.up || "Раздел", screen.t, screen.s));
+      (screen.i || []).forEach(function (item) {
+        root.appendChild(row(item[0], item[1], item[2], item[3]));
+      });
+      if (!screen.i || !screen.i.length) root.appendChild(el("p", "sub", "пока пусто"));
+      var pager = el("div", "pager");
+      var prev = el("div", "pg", "‹");
+      var next = el("div", "pg", "›");
+      if (!screen.prev) prev.setAttribute("disabled", "disabled");
+      if (!screen.next) next.setAttribute("disabled", "disabled");
+      prev.onclick = function () { if (screen.prev) go(screen.prev); };
+      next.onclick = function () { if (screen.next) go(screen.next); };
+      var label = el("span", "pgt", screen.pg || "");
+      pager.appendChild(prev);
+      pager.appendChild(label);
+      pager.appendChild(next);
+      root.appendChild(pager);
+      return;
+    }
+
+    if (screen.k === "card") {
+      root.appendChild(header(screen.up || "Карточка", screen.t, screen.s));
+      if (screen.ch && screen.ch.length) {
+        var chips = el("div", "chips");
+        screen.ch.forEach(function (text) { chips.appendChild(el("span", "chip", esc(text))); });
+        root.appendChild(chips);
+      }
+      if (screen.d) root.appendChild(el("p", "desc", esc(screen.d)));
+      if (screen.m && screen.m.length) {
+        var meta = el("div", "meta");
+        screen.m.forEach(function (pair) {
+          var line = el("div");
+          line.appendChild(el("b", null, esc(pair[0]) + ": "));
+          line.appendChild(document.createTextNode(esc(pair[1])));
+          meta.appendChild(line);
+        });
+        root.appendChild(meta);
+      }
+      var acts = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "pass") {
+      root.appendChild(header("City Passport", screen.t, screen.s));
+      root.appendChild(el("div", "xp")).appendChild(el("i")).style.width = (screen.pct || 0) + "%";
+      var stats = el("div", "stats");
+      (screen.st || []).forEach(function (item) {
+        var box = el("div", "stat");
+        box.appendChild(el("b", null, esc(item[0])));
+        box.appendChild(el("span", null, esc(item[1])));
+        stats.appendChild(box);
+      });
+      root.appendChild(stats);
+      var acts2 = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts2.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts2);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    if (screen.k === "route") {
+      root.appendChild(header("Маршрут", screen.t, screen.s));
+      (screen.r || []).forEach(function (route, index) {
+        var node = row("rp:" + index, route.i || "•", route.t,
+          route.min + " мин · " + String(route.km).replace(".", ",") + " км · " + route.sc + "/100");
+        if (index === screen.sel) node.style.borderColor = "#c6f432";
+        root.appendChild(node);
+      });
+      var acts3 = el("div", "acts");
+      (screen.b || [["m", "‹ меню"]]).forEach(function (button, index) {
+        acts3.appendChild(action(button[0], button[1], index === 0));
+      });
+      root.appendChild(acts3);
+      if (screen.n) root.appendChild(el("p", "note", screen.n));
+      return;
+    }
+
+    showError("Неизвестный экран");
+  }
+
+  function boot() {
+    root.innerHTML = "";
+    for (var i = 0; i < 3; i++) root.appendChild(el("div", "skel"));
+    go("boot");
+  }
+
+  boot();
+</script>
