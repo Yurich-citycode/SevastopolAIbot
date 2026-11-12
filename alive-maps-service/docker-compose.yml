@@ -70,7 +70,8 @@ services:
       - ./data:/data:ro
       - ./tiles:/tiles:ro
     ports:
-      - "${PORT:-8080}:8000"
+      # BIND_ADDR=127.0.0.1 — если карта нужна только через туннель и локально
+      - "${BIND_ADDR:-0.0.0.0}:${PORT:-8080}:8000"
     depends_on:
       # backend стартует даже если GraphHopper ещё импортирует граф:
       # страница открывается сразу, а /api/health покажет статус

@@ -16,6 +16,9 @@ set -uo pipefail
 cd "$(dirname "$0")/.."          # из tools/ в корень сервиса
 SERVICE_DIR="$(pwd)"
 ENV_FILE="$(dirname "$SERVICE_DIR")/.env"
+# свой каталог вместо общего /tmp: чужой процесс не подсунет симлинк
+URL_DIR="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/alive-tunnel-$(id -u)"
+mkdir -p "$URL_DIR" && chmod 700 "$URL_DIR" 2>/dev/null || true
 PORT="${PORT:-8080}"
 BIN="$SERVICE_DIR/cloudflared"
 
@@ -79,8 +82,8 @@ say ""
   printf '%s\n' "$line"
   if printf '%s' "$line" | grep -qoE 'https://[a-z0-9-]+\.trycloudflare\.com'; then
     url="$(printf '%s' "$line" | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1)"
-    if [ ! -f "${TMPDIR:-/tmp}/alive-tunnel-url" ] || [ "$(cat "${TMPDIR:-/tmp}/alive-tunnel-url")" != "$url" ]; then
-      printf '%s' "$url" > "${TMPDIR:-/tmp}/alive-tunnel-url"
+    if [ ! -f "$URL_DIR/url" ] || [ "$(cat "$URL_DIR/url")" != "$url" ]; then
+      printf '%s' "$url" > "$URL_DIR/url"
       write_env "$url"
       say ""
       say "  Карта теперь здесь: $url"
