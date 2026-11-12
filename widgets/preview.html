@@ -1,0 +1,146 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  Виджет «Живая карта» для Bot API 10.4 (sendWidget).
+  HTML рисуется внутри сообщения в песочнице Telegram, наружу умеет ровно одно —
+  TelegramWidget.request(data): до 64 байт запроса, в ответ до 1024 байт данных.
+
+  Шаблон. бот подставляет вместо {"place":"Балаклавский подземный музей","selected":1,"routes":[{"key":"fast","minutes":33,"km":2.7,"score":42},{"key":"alive","minutes":38,"km":3.0,"score":71},{"key":"most","minutes":47,"km":3.8,"score":86}]} свой JSON:
+    {"place":"Фиолент","routes":[{"key":"fast","minutes":33,"km":2.7,"score":42}, ...],"selected":1}
+
+  Если открыть файл просто в браузере, сработает заглушка внизу: виджет
+  нарисуется с демо-данными, а нажатия будут отвечать сами себе. Это для
+  проверки внешнего вида без Telegram.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0; padding: 10px 12px 12px;
+    font: 14px/1.35 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #12140e; color: #f2f5ec;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+  .title { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #8b9280; }
+  .place { margin-left: auto; font-weight: 600; font-size: 13px; color: #f2f5ec;
+           max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row {
+    display: grid; grid-template-columns: 18px 1fr auto;
+    gap: 10px; align-items: center; padding: 9px 10px; margin-bottom: 6px;
+    border: 1px solid #2a2f24; border-radius: 10px; background: #171a13;
+    transition: border-color .15s, background .15s;
+  }
+  .row:last-of-type { margin-bottom: 0; }
+  .row.sel { border-color: #c6f432; background: #1b2113; }
+  .ico { font-size: 15px; text-align: center; }
+  .name { font-size: 13px; color: #cfd6c4; }
+  .row.sel .name { color: #c6f432; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .t { font-weight: 700; font-size: 15px; }
+  .t small { font-weight: 400; font-size: 11px; color: #8b9280; margin-left: 2px; }
+  .d { font-size: 11px; color: #8b9280; }
+  .bar { grid-column: 2 / 4; height: 3px; border-radius: 2px; background: #262b20; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: #c6f432; border-radius: 2px;
+           transition: width .25s ease; }
+  .row.fast .bar i { background: #9aa4b2; }
+  .note { margin-top: 9px; font-size: 11px; color: #8b9280; }
+  .note b { color: #cfd6c4; font-weight: 600; }
+</style>
+
+<div style="max-width:390px;margin:24px auto;padding:14px;border-radius:14px;
+            background:linear-gradient(180deg,#1b1f16,#12140e);border:1px solid #2a2f24;
+            box-shadow:0 18px 50px rgba(0,0,0,.45)">
+<div class="head">
+  <span class="title">Живая карта</span>
+  <span class="place" id="place"></span>
+</div>
+<div id="rows"></div>
+<div class="note" id="note"></div>
+</div>
+<p style="max-width:390px;margin:10px auto 0;font:12px/1.5 -apple-system,Segoe UI,sans-serif;
+          color:#6f7767;text-align:center">Так карточка лежит в сообщении. Нажми любую строку —
+  выбор переедет, а цифры останутся в этом же сообщении.</p>
+
+<script>
+  var DATA = {"place":"Балаклавский подземный музей","selected":1,"routes":[{"key":"fast","minutes":33,"km":2.7,"score":42},{"key":"alive","minutes":38,"km":3.0,"score":71},{"key":"most","minutes":47,"km":3.8,"score":86}]};
+  var LABEL = { fast: "быстрый", alive: "живой", most: "самый живой" };
+  var ICON = { fast: "⚡", alive: "🌿", most: "✨" };
+  var rowsEl = document.getElementById("rows");
+  var noteEl = document.getElementById("note");
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function draw(data) {
+    document.getElementById("place").textContent = data.place || "";
+    rowsEl.innerHTML = data.routes.map(function (route, index) {
+      var selected = index === data.selected ? " sel" : "";
+      var key = route.key;
+      return '<div class="row ' + key + selected + '" data-i="' + index + '">' +
+        '<span class="ico">' + (ICON[key] || "•") + "</span>" +
+        '<span class="name">' + esc(LABEL[key] || key) + "</span>" +
+        '<span class="num"><span class="t">' + route.minutes + '<small>мин</small></span>' +
+        '<div class="d">' + String(route.km).replace(".", ",") + " км · " + route.score + "/100</div></span>" +
+        '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, route.score)) + '%"></i></span>' +
+        "</div>";
+    }).join("");
+
+    var picked = data.routes[data.selected] || data.routes[0] || {};
+    var fastest = data.routes[0] || {};
+    var extra = (picked.minutes || 0) - (fastest.minutes || 0);
+    noteEl.innerHTML = extra > 0
+      ? "выбрано: <b>+" + extra + " мин</b> к самому быстрому · нажми другую строку"
+      : "это самый короткий путь · остальные — за красоту";
+  }
+
+  function send(data) {
+    if (data.routes && typeof data.selected === "number") {
+      draw(data);
+      return;
+    }
+    if (typeof data === "string") {
+      try { data = JSON.parse(data); } catch (e) { return; }
+      if (data && data.routes) draw(data);
+    }
+  }
+
+  rowsEl.addEventListener("click", function (event) {
+    var row = event.target.closest(".row");
+    if (!row) return;
+    var index = Number(row.dataset.i);
+    if (index === DATA.selected) return;
+
+    if (!window.TelegramWidget || !window.TelegramWidget.request) { return; }
+    TelegramWidget.request("pick:" + index).then(function (answer) {
+      if (!answer || answer.result == null) return;
+      var next;
+      try { next = JSON.parse(answer.result); } catch (e) { return; }
+      if (next && next.routes) {
+        DATA = next;
+        draw(next);
+      }
+    }).catch(function () { /* молча: сообщение в чате и так остаётся рабочим */ });
+  });
+
+  draw(DATA);
+</script>
+<script>
+  /* Заглушка для проверки в обычном браузере: в Telegram она не выполняется. */
+  if (typeof TelegramWidget === "undefined") {
+    window.TelegramWidget = {
+      request: function (data) {
+        var index = Number(String(data).split(":")[1]) || 0;
+        var copy = JSON.parse(JSON.stringify(DATA));
+        copy.selected = index;
+        return new Promise(function (resolve) {
+          setTimeout(function () { resolve({ result: JSON.stringify(copy) }); }, 120);
+        });
+      }
+    };
+  }
+</script>
