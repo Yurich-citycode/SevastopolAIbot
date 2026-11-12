@@ -16,9 +16,8 @@
 
 Запуск
 ------
-    set TG_TOKEN=123456:AA...        (Windows)
-    export TG_TOKEN=123456:AA...     (macOS/Linux)
-    python testbotwidgets.py
+    TESTBOT.bat                      (Windows: спросит токен и запустит)
+    python testbotwidgets.py         (токен из TG_TOKEN или widgets/token.txt)
 
     python testbotwidgets.py --check          проверить размеры всех экранов
     python testbotwidgets.py --preview DIR    собрать предпросмотр в браузере
@@ -48,6 +47,7 @@ BASE = Path(__file__).resolve().parent
 WIDGET_HTML = BASE / "widgets" / "testbot_widget.html"
 XLSX = BASE / "Sevastopol AI База.xlsx"
 PASSPORT_FILE = BASE / "widgets" / ".passport.json"
+TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -80,7 +80,9 @@ def call(method: str, token: str, **params) -> Any:
     try:
         resp = requests.post(API.format(token=token, method=method), json=params, timeout=TIMEOUT)
     except requests.RequestException as exc:
-        raise RuntimeError(f"{method}: нет связи ({exc})") from exc
+        # в тексте ошибки requests печатает полный адрес, а там токен — вырезаем
+        detail = str(exc).replace(token, "***")
+        raise RuntimeError(f"{method}: нет связи ({detail})") from exc
     try:
         payload = resp.json()
     except ValueError as exc:
@@ -761,13 +763,21 @@ def main() -> int:
         return preview(folder)
 
     token = (os.getenv("TG_TOKEN") or os.getenv("BOT_TOKEN") or "").strip()
+    if ":" not in token and TOKEN_FILE.exists():
+        token = TOKEN_FILE.read_text(encoding="utf-8").strip()
     if ":" not in token:
-        print("Нужен токен тестового бота: set TG_TOKEN=123456:AA... (или export)")
+        print("Нужен токен тестового бота.\n"
+              "  Windows: положи его в widgets\\token.txt или запусти TESTBOT.bat\n"
+              "  иначе:   set TG_TOKEN=123456:AA...")
         return 1
     try:
         poll(token)
     except KeyboardInterrupt:
         print("\nостановлен")
+    except RuntimeError as exc:
+        print(f"\nНе смог подключиться: {exc}")
+        print("Проверь интернет и токен (widgets\\token.txt или TG_TOKEN).")
+        return 1
     return 0
 
 

@@ -81,12 +81,24 @@ python widgets\demo_bot.py --check  :: проверить, что виджет �
 `testbotwidgets.py` — дубль бота, где **весь** интерфейс в виджете: еда, локации,
 события, маршруты, паспорт. Главный бот не тронут.
 
+**Три способа запустить**
+
+1. **Windows, двойной клик:** `TESTBOT.bat` в корне репозитория. Спросит токен
+   один раз, сохранит в `widgets/token.txt` (в git не попадает) и запустит.
+2. **Colab:** `widgets/colab_testbot.ipynb` — залить в
+   [colab.research.google.com](https://colab.research.google.com) (Файл → Загрузить блокнот)
+   и выполнить ячейки по порядку. Токен спросит, в блокнот не пишется.
+3. **Вручную:**
+
 ```bat
 set TG_TOKEN=123456:AA...
 python testbotwidgets.py
 python testbotwidgets.py --check            :: размеры всех экранов
 python testbotwidgets.py --preview widgets  :: превью для браузера
 ```
+
+**Дальше в Telegram:** найти своего тестового бота по юзернейму → Start.
+Карточка должна прийти сразу; если пришёл текст — обнови Telegram.
 
 Что умеет:
 
