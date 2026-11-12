@@ -127,6 +127,18 @@ def main() -> int:
               [b.get("name") for b in data["alive"]["bonuses"]])
         check("bonus — кафе рядом", any(b.get("kind") == "cafe" for b in data["alive"]["bonuses"]))
         check("delta посчитан", data["delta"]["distance_m"] == 240, data["delta"])
+        check("три варианта маршрута", {"fast", "alive", "most_alive"} <= set(data), list(data)[:6])
+        check("балл живости 0..100",
+              all(0 <= data[k]["score"]["score"] <= 100 for k in ("fast", "alive", "most_alive")),
+              {k: data[k]["score"]["score"] for k in ("fast", "alive", "most_alive")})
+        check("живой не хуже быстрого по баллу",
+              data["alive"]["score"]["score"] >= data["fast"]["score"]["score"])
+        check("разбивка по категориям",
+              any(item["key"] == "park" and item["percent"] > 0 for item in data["alive"]["score"]["breakdown"]),
+              data["alive"]["score"]["breakdown"])
+        check("живой уложился в +15%", data["alive"]["time_s"] <= data["fast"]["time_s"] * 1.15 + 180,
+              data["delta"]["time_min"])
+        check("delta_most посчитан", "time_min" in data["delta_most"])
         check("моя точка в объяснении",
               any(b.get("own") for b in data["alive"]["bonuses"]),
               [b.get("name") for b in data["alive"]["bonuses"]])

@@ -115,6 +115,19 @@
   .rmain{ display:flex; align-items:baseline; gap:6px; }
   .rt{ font:800 30px/.92 var(--sans); letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
   .rcard.alive .rt{ color:var(--lime); }
+  .rcard.most{ border-color:rgba(255,198,92,.55); }
+  .rcard.most .rlabel, .rcard.most .rt{ color:#FFC65C; }
+  .rscore{ font:800 13px/1 var(--mono); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .rscore small{ font-size:9px; opacity:.6; }
+  .rcard.alive .rscore{ color:var(--lime); }
+  .rcard.most .rscore{ color:#FFC65C; }
+
+  .bars{ display:grid; gap:4px; margin-top:9px; }
+  .bar{ display:grid; grid-template-columns:1fr 78px 34px; align-items:center; gap:7px;
+        font:500 10.5px/1 var(--mono); color:var(--muted); }
+  .bar i{ height:4px; background:rgba(242,245,236,.09); border-radius:2px; overflow:hidden; }
+  .bar i b{ display:block; height:100%; background:var(--lime); border-radius:2px; }
+  .bar em{ font-style:normal; text-align:right; color:var(--dim); }
   .ru{ font-size:12px; color:var(--muted); }
   .rd{ margin-left:auto; text-align:right; font:500 10.5px/1.4 var(--mono); color:var(--muted); }
 
@@ -238,6 +251,7 @@
       <button class="chip" id="chipOwn" aria-pressed="false">мои места</button>
       <button class="chip" id="chipFast" aria-pressed="true">быстрый</button>
       <button class="chip" id="chipAlive" aria-pressed="true">живой</button>
+      <button class="chip" id="chipMost" aria-pressed="true">живее</button>
       <button class="chip" id="chipCenter">к центру</button>
     </div>
     <div class="legend">
@@ -280,6 +294,7 @@
     ownOn: false,
     showFast: true,
     showAlive: true,
+    showMost: true,
     busy: false
   };
 
@@ -399,6 +414,7 @@
     /* маршруты */
     map.addSource('fast', { type: 'geojson', data: EMPTY });
     map.addSource('alive', { type: 'geojson', data: EMPTY });
+    map.addSource('most', { type: 'geojson', data: EMPTY });
 
     map.addLayer({
       id: 'alive-glow',
@@ -420,6 +436,14 @@
       source: 'alive',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: { 'line-color': '#C6F432', 'line-width': 4 }
+    });
+    /* самый живой — янтарный пунктир: видно, где он уходит в сторону */
+    map.addLayer({
+      id: 'most-line',
+      type: 'line',
+      source: 'most',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#FFC65C', 'line-width': 3, 'line-dasharray': [1.6, 1.4] }
     });
 
     loadZones();
@@ -467,6 +491,7 @@
     $('#delta').innerHTML = '';
     setData('fast', EMPTY);
     setData('alive', EMPTY);
+    setData('most', EMPTY);
   }
 
   function setData(id, data) {
@@ -535,22 +560,26 @@
 
     if (alive) setData('alive', alive.geojson);
     if (fast) setData('fast', fast.geojson);
+    if (res.most_alive) setData('most', res.most_alive.geojson);
     applyVisibility();
 
     var html = '';
     if (fast) html += card('fast', 'быстрый', fast);
     if (alive) html += card('alive', 'живой', alive);
+    if (res.most_alive && res.most_alive !== alive) html += card('most', 'самый живой', res.most_alive);
     $('#res').innerHTML = html;
     $('#resSec').hidden = !html;
 
     var delta = res.delta;
     if (delta) {
+      var gain = (res.score && res.score.percent) || 0;
+      var gainText = gain > 0 ? ' Живость выше на <b>' + gain + '%</b>.' : '';
       $('#delta').innerHTML = delta.same_route
         ? '<div class="delta">Выводы: в этом месте живой маршрут совпал с быстрым — рядом нет зон, за которые стоит крюк. Попробуй другую пару точек или усиль зоны.</div>'
         : '<div class="delta">Живой маршрут длиннее на <b>' + Math.abs(delta.time_min).toFixed(0) +
           ' мин</b> и <b>' + Math.abs(delta.distance_m) + ' м</b>' +
           (delta.time_min > 7 ? ' — многовато, ослабь зоны ползунком.' : ' — это и есть «пара минут за удовольствие».') +
-          '</div>';
+          gainText + '</div>';
     } else {
       $('#delta').innerHTML = '';
     }
@@ -561,6 +590,7 @@
 
   function card(kind, label, data) {
     var b = data.bonuses || [];
+    var sc = data.score || {};
     var bonuses = '';
     if (b.length) {
       bonuses = '<ul class="bonuses">' + b.slice(0, 6).map(function (item) {
@@ -568,13 +598,24 @@
           (item.meters ? '<small>' + item.meters + ' м</small>' : '') + '</li>';
       }).join('') + '</ul>';
     }
+    var bars = '';
+    if (kind === 'alive' && sc.breakdown && sc.breakdown.length) {
+      bars = '<div class="bars">' + sc.breakdown.map(function (item) {
+        var fill = Math.min(100, Math.round(item.percent / Math.max(item.full_at || 1, 1) * 100));
+        return '<div class="bar"><span>' + escapeHtml(item.title) + '</span>' +
+          '<i><b style="width:' + fill + '%"></b></i>' +
+          '<em>' + item.percent + '%</em></div>';
+      }).join('') + '</div>';
+    }
+    var pill = (sc.score !== undefined)
+      ? '<span class="rscore">' + sc.score + '<small>/100</small></span>' : '';
     return '<article class="rcard ' + kind + '">' +
-      '<div class="rhead"><span class="rlabel">' + label + '</span>' +
+      '<div class="rhead"><span class="rlabel">' + label + '</span>' + pill +
       (data.cached ? '<span class="rlabel" style="color:var(--dim)">кэш</span>' : '') + '</div>' +
       '<div class="rmain"><span class="rt">' + Math.max(1, Math.round(data.time_min)) + '</span>' +
       '<span class="ru">мин</span>' +
       '<span class="rd">' + fmtMeters(data.distance_m) + '</span></div>' +
-      bonuses +
+      bonuses + bars +
       (data.degraded ? '<div class="hint" style="margin-top:6px">зоны не применились — GraphHopper их не принял, маршрут по правилам улиц</div>' : '') +
       '</article>';
   }
@@ -584,7 +625,9 @@
   }
 
   function applyVisibility() {
-    [['fast', state.showFast, ['fast-line']], ['alive', state.showAlive, ['alive-glow', 'alive-line']]].forEach(function (cfg) {
+    [['fast', state.showFast, ['fast-line']],
+     ['alive', state.showAlive, ['alive-glow', 'alive-line']],
+     ['most', state.showMost, ['most-line']]].forEach(function (cfg) {
       var visible = cfg[1] ? 'visible' : 'none';
       cfg[2].forEach(function (layer) {
         if (map.getLayer(layer)) map.setLayoutProperty(layer, 'visibility', visible);
@@ -671,6 +714,12 @@
   $('#chipAlive').addEventListener('click', function () {
     state.showAlive = !state.showAlive;
     this.setAttribute('aria-pressed', state.showAlive ? 'true' : 'false');
+    applyVisibility();
+  });
+
+  $('#chipMost').addEventListener('click', function () {
+    state.showMost = !state.showMost;
+    this.setAttribute('aria-pressed', state.showMost ? 'true' : 'false');
     applyVisibility();
   });
 

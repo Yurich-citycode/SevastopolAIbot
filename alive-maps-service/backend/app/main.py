@@ -29,6 +29,8 @@ from .config import (
 )
 from .pois import POIS
 from .route_png import render_compare
+from .score import compare as score_compare
+from .score import evaluate as score_route
 from .zones import KIND_BONUS, ZONES
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -165,6 +167,29 @@ async def _compute(request: Request, start: list[float], end: list[float], mode:
     return {**payload, "cached": False}
 
 
+def _with_score(payload: dict) -> dict:
+    """Добавляет к маршруту балл живости и разбивку по категориям."""
+    coordinates = (payload.get("geojson") or {}).get("geometry", {}).get("coordinates") or []
+    return {**payload, "score": score_route(coordinates)}
+
+
+async def _alive_within(request: Request, start: list[float], end: list[float], budget_s: float) -> dict:
+    """Самый живой маршрут, который укладывается в бюджет по времени.
+
+    Сначала пробуем полную силу зон. Если выходит за бюджет — ослабляем,
+    пока не уложимся. Это честнее, чем вести человека в объезд на 20 минут
+    ради красоты, которую он не просил.
+    """
+    fallback: dict | None = None
+    for strength in (1.0, 0.6, 0.3):
+        route = await _compute(request, start, end, "alive", strength)
+        if fallback is None or route["time_s"] < fallback["time_s"]:
+            fallback = route
+        if route["time_s"] <= budget_s:
+            return route
+    return fallback or await _compute(request, start, end, "alive", 0.0)
+
+
 @app.post("/api/route")
 async def api_route(req: RouteRequest, request: Request) -> JSONResponse:
     start = _check_point("старт", req.start)
@@ -173,26 +198,61 @@ async def api_route(req: RouteRequest, request: Request) -> JSONResponse:
     return JSONResponse(payload)
 
 
+# сколько времени маршрут имеет право добавить сверх быстрого
+LIVE_CAP = 1.15      # «живой»: не больше +15%
+MOST_LIVE_CAP = 1.66  # «самый живой»: не больше +66%
+
+
+def _delta(fast: dict, other: dict) -> dict:
+    delta_s = other["time_s"] - fast["time_s"]
+    delta_m = other["distance_m"] - fast["distance_m"]
+    return {
+        "time_s": round(delta_s),
+        "time_min": round(delta_s / 60, 1),
+        "distance_m": round(delta_m),
+        "same_route": abs(delta_m) < 15,
+    }
+
+
 @app.post("/api/compare")
 async def api_compare(req: Point2, request: Request) -> JSONResponse:
-    """Оба маршрута сразу + разница — это то, что показывает интерфейс."""
+    """Три варианта сразу: быстрый, живой и самый живой — плюс разница.
+
+    «Живой» обязан уложиться в +15% времени (или +3 минуты на коротком
+    маршруте), «самый живой» — в +66%. Если красота дороже, маршрут
+    ослабляется: лучше меньше зон, чем неожиданные лишние полчаса.
+    """
     start = _check_point("старт", req.start)
     end = _check_point("финиш", req.end)
 
     fast = await _compute(request, start, end, "fast", 0.0)
-    alive = await _compute(request, start, end, "alive", 1.0)
+    budget = max(fast["time_s"] * LIVE_CAP, fast["time_s"] + 180)
+    alive = await _alive_within(request, start, end, budget)
 
-    delta_s = alive["time_s"] - fast["time_s"]
-    delta_m = alive["distance_m"] - fast["distance_m"]
+    most_budget = fast["time_s"] * MOST_LIVE_CAP
+    most = await _compute(request, start, end, "alive", 2.0)
+    if most["time_s"] > most_budget:
+        softer = await _compute(request, start, end, "alive", 1.5)
+        if softer["time_s"] < most["time_s"]:
+            most = softer
+
+    fast = _with_score(fast)
+    alive = _with_score(alive)
+    most = _with_score(most)
+
     return JSONResponse({
         "fast": fast,
         "alive": alive,
-        "delta": {
-            "time_s": round(delta_s),
-            "time_min": round(delta_s / 60, 1),
-            "distance_m": round(delta_m),
-            "same_route": abs(delta_m) < 15,
+        "most_alive": most,
+        "delta": _delta(fast, alive),
+        "delta_most": _delta(fast, most),
+        "score": {
+            "fast": fast["score"]["score"],
+            "alive": alive["score"]["score"],
+            "most_alive": most["score"]["score"],
+            "percent": score_compare(fast["score"], alive["score"])["percent"],
         },
+        "caps": {"alive": LIVE_CAP - 1, "most_alive": MOST_LIVE_CAP - 1},
     })
 
 
@@ -255,11 +315,13 @@ async def api_compare_png(request: Request, from_: str = Query("", alias="from")
     end = _check_point("финиш", [end_lon, end_lat])
 
     fast = await _compute(request, start, end, "fast", 0.0)
-    alive = await _compute(request, start, end, "alive", 1.0)
+    budget = max(fast["time_s"] * LIVE_CAP, fast["time_s"] + 180)
+    alive = await _alive_within(request, start, end, budget)
+    most = await _compute(request, start, end, "alive", 2.0)
 
     try:
         png = render_compare(
-            fast, alive,
+            fast, alive, most,
             zones_geojson=ZONES.geojson(),
             pois_geojson=POIS.geojson(),
             title=title or None,

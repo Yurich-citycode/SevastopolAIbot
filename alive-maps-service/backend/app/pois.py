@@ -20,6 +20,7 @@ import threading
 from typing import Any
 
 from shapely.geometry import LineString, Point, mapping, shape
+from shapely.ops import unary_union
 
 from .zones import KIND_RU
 
@@ -182,6 +183,18 @@ class Pois:
         return {"type": "FeatureCollection", "features": features}, rules
 
     # ---------- объяснение маршрута ----------
+
+    def coverage(self, coordinates: list[list[float]], radius_deg: float = 0.00055) -> float:
+        """Сколько метров маршрута проходит рядом с моими местами (радиус ~60 м)."""
+        if len(coordinates) < 2 or not self._items:
+            return 0.0
+        line = LineString([(float(x), float(y)) for x, y in coordinates])
+        total = line.length * METERS_PER_DEG
+        if total <= 0:
+            return 0.0
+        near = unary_union([item["point"].buffer(radius_deg) for item in self._items])
+        part = line.intersection(near)
+        return min(part.length * METERS_PER_DEG, total) if not part.is_empty else 0.0
 
     def explain(self, coordinates: list[list[float]], buffer_deg: float = 0.00055) -> list[dict]:
         """Мои точки рядом с маршрутом: «мимо “Кофе в Окнах”»."""

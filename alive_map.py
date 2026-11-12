@@ -237,12 +237,40 @@ def format_compare(place_name: str, data: dict) -> str:
     diff = round((delta.get("time_s") or 0) / 60)
     diff_text = f" (+{diff} мин)" if diff > 0 else " (столько же)"
 
+    most = data.get("most_alive") or {}
+    scores = data.get("score") or {}
+
+    fast_score = (fast.get("score") or {}).get("score")
+    alive_score = (alive.get("score") or {}).get("score")
+    most_score = (most.get("score") or {}).get("score")
+
+    def _points(value) -> str:
+        return f" · {value}/100" if isinstance(value, int) else ""
+
     lines = [
         f"🚶 До «{place_name}»",
         "",
-        f"⚡ <b>быстрый</b>: {_fmt_minutes(fast.get('time_s'))} · {_fmt_km(fast.get('distance_m'))}",
-        f"🌿 <b>живой</b>: {_fmt_minutes(alive.get('time_s'))} · {_fmt_km(alive.get('distance_m'))}{diff_text}",
+        f"⚡ <b>быстрый</b>: {_fmt_minutes(fast.get('time_s'))} · {_fmt_km(fast.get('distance_m'))}{_points(fast_score)}",
+        f"🌿 <b>живой</b>: {_fmt_minutes(alive.get('time_s'))} · {_fmt_km(alive.get('distance_m'))}{diff_text}{_points(alive_score)}",
     ]
+
+    # третий вариант показываем, только если он правда другой и заметно живее
+    if not (most.get("geojson") == alive.get("geojson")) and isinstance(most_score, int) \
+            and isinstance(alive_score, int) and most_score >= alive_score + 5:
+        most_diff = round(((data.get("delta_most") or {}).get("time_s") or 0) / 60)
+        plus = f" (+{most_diff} мин)" if most_diff > 0 else ""
+        lines.append(
+            f"✨ <b>самый живой</b>: {_fmt_minutes(most.get('time_s'))} · "
+            f"{_fmt_km(most.get('distance_m'))}{plus}{_points(most_score)}"
+        )
+
+    percent = scores.get("percent") or 0
+    breakdown = (alive.get("score") or {}).get("breakdown") or []
+    top = [f"{item['title'].lower()} {item['percent']}%" for item in breakdown
+           if item.get("percent", 0) >= 10][:3]
+    if top:
+        lead = f"живее быстрого на {percent}% · " if percent > 0 else "по живости: "
+        lines += ["", lead + ", ".join(top)]
 
     bonuses = alive.get("bonuses") or []
     if bonuses:
