@@ -76,20 +76,39 @@ FOOD_CATS = (
 # ────────────────────────────── Telegram API ──────────────────────────────
 
 def call(method: str, token: str, **params) -> Any:
-    """Один вызов Bot API. Бросает RuntimeError с понятным текстом."""
-    try:
-        resp = requests.post(API.format(token=token, method=method), json=params, timeout=TIMEOUT)
-    except requests.RequestException as exc:
-        # в тексте ошибки requests печатает полный адрес, а там токен — вырезаем
-        detail = str(exc).replace(token, "***")
-        raise RuntimeError(f"{method}: нет связи ({detail})") from exc
-    try:
-        payload = resp.json()
-    except ValueError as exc:
-        raise RuntimeError(f"{method}: ответ не JSON") from exc
-    if not payload.get("ok"):
-        raise RuntimeError(f"{method}: {payload.get('description')}")
-    return payload.get("result")
+    """Один вызов Bot API с повторами: сеть до Telegram бывает капризной.
+
+    На таймаут и обрыв пробуем ещё дважды — за это время связь обычно
+    восстанавливается. Ответ «ok: false» (например, неверный токен) не
+    повторяем: там повтор ничего не изменит.
+    """
+    url = API.format(token=token, method=method)
+    problem = ""
+
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=params, timeout=TIMEOUT)
+        except requests.Timeout:
+            problem = (f"{method}: Telegram не ответил за {int(TIMEOUT)} секунд "
+                       f"(попытка {attempt + 1} из 3)")
+            time.sleep(1.5 * (attempt + 1))
+            continue
+        except requests.RequestException as exc:
+            # в тексте ошибки requests печатает полный адрес, а там токен — вырезаем
+            problem = f"{method}: нет связи ({str(exc).replace(token, '***')})"
+            time.sleep(1.0)
+            continue
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            raise RuntimeError(f"{method}: ответ не JSON (HTTP {resp.status_code})")
+        if not payload.get("ok"):
+            raise RuntimeError(f"{method}: {payload.get('description')}")
+        return payload.get("result")
+
+    raise RuntimeError(problem + "\nЕсли это Colab — перезапусти ячейку. "
+                                 "Если повторяется, проще запустить на компьютере: TESTBOT.bat")
 
 
 def send_message(token: str, chat_id: int, text: str) -> None:
@@ -765,6 +784,9 @@ def main() -> int:
     token = (os.getenv("TG_TOKEN") or os.getenv("BOT_TOKEN") or "").strip()
     if ":" not in token and TOKEN_FILE.exists():
         token = TOKEN_FILE.read_text(encoding="utf-8").strip()
+    if token and not re.fullmatch(r"\d{6,12}:[A-Za-z0-9_-]{30,}", token):
+        print("Это не похоже на токен: ожидаю 8123456789:AAH... (цифры, двоеточие, ~35 символов).\n"
+              "Проверь, что в файл или переменную попал именно токен, а не имя секрета.\n")
     if ":" not in token:
         print("Нужен токен тестового бота.\n"
               "  Windows: положи его в widgets\\token.txt или запусти TESTBOT.bat\n"
