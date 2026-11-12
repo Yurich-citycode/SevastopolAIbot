@@ -14,6 +14,8 @@ localhost:8080. Здесь только тонкий мост: бот спраш
 
 from __future__ import annotations
 
+import asyncio
+import html
 import logging
 import os
 import time
@@ -220,6 +222,36 @@ def map_link(start_lat: float | None = None, start_lon: float | None = None,
 
 # ---------------- текст и клавиатуры ----------------
 
+def _esc(value: Any) -> str:
+    """Экранирование для HTML-разметки Telegram.
+
+    Названия приходят из базы и из текста человека. Если в названии есть & или <,
+    Telegram отвечает ошибкой «can't parse entities» — сообщение не доходит вообще.
+    """
+    return html.escape(str(value or ""), quote=False)
+
+
+def _clip_html(text: str, limit: int = 1000) -> str:
+    """Обрезает подпись под лимит Telegram, не ломая разметку.
+
+    Режем по строкам, а не по символам: обрывок вроде «<b>живой» без закрытия
+    тега тоже даёт ошибку разметки.
+    """
+    if len(text) <= limit:
+        return text
+    out: list[str] = []
+    size = 0
+    for line in text.split("\n"):
+        if size + len(line) + 1 > limit:
+            break
+        out.append(line)
+        size += len(line) + 1
+    clipped = "\n".join(out).rstrip()
+    open_tags = clipped.count("<b>") - clipped.count("</b>")
+    clipped += "</b>" * max(0, open_tags)
+    return clipped or text[:limit].rsplit("<", 1)[0]
+
+
 def _fmt_minutes(seconds: float) -> str:
     return f"{round((seconds or 0) / 60)} мин"
 
@@ -248,7 +280,7 @@ def format_compare(place_name: str, data: dict) -> str:
         return f" · {value}/100" if isinstance(value, int) else ""
 
     lines = [
-        f"🚶 До «{place_name}»",
+        f"🚶 До «{_esc(place_name)}»",
         "",
         f"⚡ <b>быстрый</b>: {_fmt_minutes(fast.get('time_s'))} · {_fmt_km(fast.get('distance_m'))}{_points(fast_score)}",
         f"🌿 <b>живой</b>: {_fmt_minutes(alive.get('time_s'))} · {_fmt_km(alive.get('distance_m'))}{diff_text}{_points(alive_score)}",
@@ -266,7 +298,7 @@ def format_compare(place_name: str, data: dict) -> str:
 
     percent = scores.get("percent") or 0
     breakdown = (alive.get("score") or {}).get("breakdown") or []
-    top = [f"{item['title'].lower()} {item['percent']}%" for item in breakdown
+    top = [f"{_esc(item['title']).lower()} {item['percent']}%" for item in breakdown
            if item.get("percent", 0) >= 10][:3]
     if top:
         lead = f"живее быстрого на {percent}% · " if percent > 0 else "по живости: "
@@ -278,7 +310,7 @@ def format_compare(place_name: str, data: dict) -> str:
         for item in bonuses[:4]:
             name = item.get("name")
             label = BONUS_LABEL.get(str(item.get("kind")), "место")
-            names.append(f"{name} ({label})" if name else label)
+            names.append(f"{_esc(name)} ({label})" if name else label)
         lines += ["", "через: " + ", ".join(names)]
 
     if (delta.get("same_route")):
@@ -413,7 +445,10 @@ def register(dp, get_places: Callable[[str], list[dict]],
     async def cb_panel(call: types.CallbackQuery, state: FSMContext) -> None:
         await state.clear()
         await call.answer()
-        await call.message.answer(panel_text(), reply_markup=_panel_keyboard())
+        # panel_text ходит в сервис: при выключенной карте это до 6 секунд
+        # ожидания подряд — в потоке, чтобы не держать остальных.
+        text = await asyncio.to_thread(panel_text)
+        await call.message.answer(text, reply_markup=_panel_keyboard())
 
     @dp.callback_query(F.data == "alive:ask")
     async def cb_ask(call: types.CallbackQuery, state: FSMContext) -> None:
@@ -514,7 +549,13 @@ def register(dp, get_places: Callable[[str], list[dict]],
         place_name = dest.get("name") or "места"
 
         waiting = await message.answer("Считаю два маршрута…")
-        result = compare(start_lat, start_lon, coords["lat"], coords["lon"])
+        # requests — синхронный и может думать до 20 секунд. В отдельном потоке:
+        # иначе на это время замирает весь бот у всех остальных людей.
+        try:
+            result = await asyncio.to_thread(compare, start_lat, start_lon, coords["lat"], coords["lon"])
+        except Exception as exc:  # noqa: BLE001 — сервис не должен ронять бота
+            logger.warning("живая карта: ошибка запроса (%s)", exc)
+            result = None
         try:
             await waiting.delete()
         except Exception:  # noqa: BLE001 — сообщение могло уже уехать
@@ -534,15 +575,20 @@ def register(dp, get_places: Callable[[str], list[dict]],
             return
 
         text = format_compare(place_name, result)
-        png = compare_png(start_lat, start_lon, coords["lat"], coords["lon"],
-                          title=f"{place_name}")
+        try:
+            png = await asyncio.to_thread(
+                compare_png, start_lat, start_lon, coords["lat"], coords["lon"], title=str(place_name)[:80]
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("живая карта: картинка не собралась (%s)", exc)
+            png = None
         await state.clear()
 
         kb = _route_keyboard(dest)
         if png:
             await message.answer_photo(
                 BufferedInputFile(png, filename="route.png"),
-                caption=text[:1000],
+                caption=_clip_html(text),
                 parse_mode="HTML",
                 reply_markup=kb,
             )

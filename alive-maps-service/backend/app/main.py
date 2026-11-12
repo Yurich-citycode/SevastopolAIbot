@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import gh
+from .guard import GuardMiddleware
 from .config import (
     BBOX, CACHE_TTL, CENTER, GH_PROFILE, POIS_FILE, STYLE_FILE, TS_SOURCE, TS_URL, ZONES_FILE,
 )
@@ -77,6 +78,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# предохранители: размер тела и частота обращений к /api/*
+app.add_middleware(GuardMiddleware)
 
 
 class Point2(BaseModel):
@@ -324,7 +327,7 @@ async def api_compare_png(request: Request, from_: str = Query("", alias="from")
             fast, alive, most,
             zones_geojson=ZONES.geojson(),
             pois_geojson=POIS.geojson(),
-            title=title or None,
+            title=(title or "")[:80] or None,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
