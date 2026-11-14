@@ -57,7 +57,7 @@ PASSPORT_FILE = BASE / "widgets" / ".passport.json"
 TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
-VERSION = "1.15"
+VERSION = "1.16"
 
 API_ROOT = "https://api.telegram.org"
 API = API_ROOT + "/bot{token}/{method}"
@@ -127,6 +127,10 @@ def send_message(token: str, chat_id: int, text: str) -> None:
     call("sendMessage", token, chat_id=chat_id, text=text, disable_web_page_preview=True)
 
 
+WIDGET_STATE: dict[str, Any] = {"closed_until": 0.0, "reason": ""}
+WIDGET_RECHECK = 600  # секунд: раз в 10 минут снова пробуем, вдруг доступ открыли
+
+
 class WidgetsClosed(RuntimeError):
     """Виджеты этому боту не разрешены — нужен запасной вариант интерфейса."""
 
@@ -147,6 +151,9 @@ def send_widget(token: str, chat_id: int, state: dict, caption: str = "") -> int
         chat_data=json.dumps({"k": "menu"}, ensure_ascii=False, separators=(",", ":")),
     )
 
+    if not BETA and time.time() < WIDGET_STATE["closed_until"]:
+        raise WidgetsClosed(WIDGET_STATE["reason"] or "виджеты боту не выданы")
+
     try:
         message = call("sendWidget", token, **payload)
     except RuntimeError as exc:
@@ -157,8 +164,11 @@ def send_widget(token: str, chat_id: int, state: dict, caption: str = "") -> int
         try:
             message = call("sendWidget", token, beta=True, **payload)
         except RuntimeError as second:
+            WIDGET_STATE["closed_until"] = time.time() + WIDGET_RECHECK
+            WIDGET_STATE["reason"] = str(second)
             raise WidgetsClosed(str(second)) from second
 
+    WIDGET_STATE["closed_until"] = 0.0
     return int((message or {}).get("message_id") or 0)
 
 
@@ -814,11 +824,19 @@ def on_message(token: str, message: dict) -> None:
 
     if text.startswith("/testwidget") or text.startswith("/виджет"):
         ok, lines = try_widget(token, chat_id)
-        tail = ("\n\nЗначит виджеты этому боту открыты. Запусти бота так: "
-                "python testbotwidgets.py --beta" if ok else
-                "\n\nЗначит виджеты этому боту не выданы: Telegram пускает в новинку не всех ботам. "
-                "Ниже — обычный интерфейс на кнопках, он работает.")
+        if ok:
+            WIDGET_STATE["closed_until"] = 0.0
+            tail = "\n\nВиджеты открыты: карточка должна быть выше. Удобнее с ними — запусти бота " \
+                   "так: python testbotwidgets.py --beta"
+        else:
+            WIDGET_STATE["closed_until"] = time.time() + WIDGET_RECHECK
+            WIDGET_STATE["reason"] = "виджеты боту не выданы"
+            tail = "\n\nВиджеты этому боту не выданы: Telegram пускает в новинку не всех ботам. " \
+                   "Ниже — тот же бот на кнопках, он работает."
         send_message(token, chat_id, "Проверка виджета\n" + "\n".join(lines) + tail)
+
+        state = {"steps": [], "user": int(user.get("id") or 0), "name": name}
+        show_fallback(token, chat_id, state)
         return
 
     if text.startswith("/паспорт") or text.startswith("/passport"):
