@@ -13,11 +13,18 @@
 
 import os
 import sys
+import tempfile
+import urllib.error
+import urllib.request
 from datetime import datetime
 
 import openpyxl
 
 XLSX = "Sevastopol AI База.xlsx"
+
+# Бот читает не файл, а копию таблицы из Google Sheets — её тоже можно проверить
+SPREADSHEET_ID = "1Pg6js5B9VvZ00c-VPW_QNK9cvY12hRgM"
+SHEETS_URL = "https://docs.google.com/spreadsheets/d/{id}/export?format=xlsx"
 
 # Границы Севастополя с запасом: координаты вне них — почти всегда опечатка
 LAT_MIN, LAT_MAX = 44.30, 44.75
@@ -268,13 +275,41 @@ def check_events(ws):
 
 # ───────────────────────────────── main ───────────────────────────
 
+def download_sheets() -> str | None:
+    """Скачивает ту же копию таблицы, которую читает бот, и кладёт во временный файл."""
+    url = SHEETS_URL.format(id=SPREADSHEET_ID)
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "SevastopolAIbot/1.0"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            content = response.read()
+    except (urllib.error.URLError, TimeoutError) as exc:
+        print(f"❌ Google не отдал таблицу: {exc}")
+        print("   Проверь доступ: Файл → Настройки доступа → «Все, у кого есть ссылка» → Читатель.")
+        return None
+    if not content.startswith(b"PK"):
+        print("❌ Google вернул не XLSX. Скорее всего таблица закрыта для чтения по ссылке.")
+        return None
+    handle, path = tempfile.mkstemp(suffix=".xlsx")
+    with os.fdopen(handle, "wb") as file:
+        file.write(content)
+    print(f"   скачал копию таблицы из Google Sheets ({len(content) // 1024} КБ)")
+    return path
+
+
 def main():
-    if not os.path.exists(XLSX):
-        print(f"❌ Файл {XLSX!r} не найден. Запусти из корня репозитория.")
+    path = XLSX
+    if "--sheets" in sys.argv:
+        print("== Проверяю то, что видит бот: копию из Google Sheets ==")
+        path = download_sheets()
+        if not path:
+            return 1
+
+    if not os.path.exists(path):
+        print(f"❌ Файл {path!r} не найден. Запусти из корня репозитория или добавь --sheets.")
         return 1
 
-    wb = openpyxl.load_workbook(XLSX, data_only=True)          # значения
-    wb_f = openpyxl.load_workbook(XLSX, data_only=False)       # формулы
+    wb = openpyxl.load_workbook(path, data_only=True)          # значения
+    wb_f = openpyxl.load_workbook(path, data_only=False)       # формулы
     required = ["Где поесть", "Локации", "Маршруты", "События"]
     for sheet in required:
         if sheet not in wb.sheetnames:

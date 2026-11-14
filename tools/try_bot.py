@@ -91,7 +91,7 @@ def _say(text: str) -> None:
 async def run(lines: list[str]) -> int:
     from aiogram import Bot
     from aiogram.client.session.base import BaseSession
-    from aiogram.methods import SendMessage, SendPhoto
+    from aiogram.methods import EditMessageText, SendMessage, SendPhoto
     from aiogram.types import Chat, Message, Update, User
 
     sent: list[dict] = []
@@ -108,9 +108,13 @@ async def run(lines: list[str]) -> int:
                 if getattr(button, "text", None)
             ]
             if isinstance(method, SendMessage):
-                sent.append({"text": method.text or "", "buttons": buttons})
+                sent.append({"text": method.text or "", "buttons": buttons, "edited": False})
+            elif isinstance(method, EditMessageText):
+                # правка того же сообщения — обычное дело при нажатиях
+                sent.append({"text": method.text or "", "buttons": buttons, "edited": True})
             elif isinstance(method, SendPhoto):
-                sent.append({"text": f"[картинка] {method.caption or ''}".strip(), "buttons": buttons})
+                sent.append({"text": f"[картинка] {method.caption or ''}".strip(), "buttons": buttons,
+                             "edited": False})
             returning = getattr(type(method), "__returning__", bool)
             if returning is Message:
                 return Message.model_construct(
@@ -184,7 +188,10 @@ async def run(lines: list[str]) -> int:
             print(f"\033[31mобработчик упал:\033[0m {type(exc).__name__}: {exc}")
             return
         for item in sent[before:]:
-            _say(item["text"] if item["text"] else "(пустое сообщение)")
+            body = item["text"] if item["text"] else "(пустое сообщение)"
+            if item.get("edited"):
+                body = "⟳ " + body
+            _say(body)
             for number, label in enumerate(item["buttons"], start=1):
                 print(f"[2m     кнопка {number}:[0m {label}")
         if len(sent) == before:
