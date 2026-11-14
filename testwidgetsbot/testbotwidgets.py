@@ -17,10 +17,10 @@
 Запуск
 ------
     TESTBOT.bat                      (Windows: спросит токен и запустит)
-    python testbotwidgets.py         (токен из TG_TOKEN или widgets/token.txt)
+    python testbotwidgets.py         (токен из TG_TOKEN или token.txt рядом со скриптом)
 
     python testbotwidgets.py --check          проверить размеры всех экранов
-    python testbotwidgets.py --preview DIR    собрать предпросмотр в браузере
+    python testbotwidgets.py --preview DIR    собрать предпросмотр в браузере (по умолчанию сюда же)
     python testbotwidgets.py --beta           сразу через api.telegram.org/beta
     python testbotwidgets.py --test-widget    живая проверка: пустят виджет или нет
 
@@ -50,11 +50,17 @@ from typing import Any
 
 import requests
 
-BASE = Path(__file__).resolve().parent
-WIDGET_HTML = BASE / "widgets" / "testbot_widget.html"
+BASE = Path(__file__).resolve().parent          # папка тест-бота
+ROOT = BASE.parent                              # корень репозитория
+
+WIDGET_HTML = BASE / "testbot_widget.html"
+PASSPORT_FILE = BASE / ".passport.json"
+TOKEN_FILE = BASE / "token.txt"
+
+# таблица лежит в корне репозитория; если рядом с ботом своя копия — берём её
 XLSX = BASE / "Sevastopol AI База.xlsx"
-PASSPORT_FILE = BASE / "widgets" / ".passport.json"
-TOKEN_FILE = BASE / "widgets" / "token.txt"
+if not XLSX.exists():
+    XLSX = ROOT / "Sevastopol AI База.xlsx"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
 VERSION = "1.16"
@@ -1035,14 +1041,14 @@ def main() -> int:
         if ":" not in token and TOKEN_FILE.exists():
             token = TOKEN_FILE.read_text(encoding="utf-8").strip()
         if ":" not in token:
-            print("Нужен токен: widgets\\token.txt или переменная TG_TOKEN.")
+            print("Нужен токен: token.txt рядом со скриптом или переменная TG_TOKEN.")
             return 1
         return probe_widget(token)
     if "--check" in sys.argv:
         return check()
     if "--preview" in sys.argv:
         index = sys.argv.index("--preview")
-        folder = Path(sys.argv[index + 1]) if len(sys.argv) > index + 1 else BASE / "widgets"
+        folder = Path(sys.argv[index + 1]) if len(sys.argv) > index + 1 else BASE
         return preview(folder)
 
     token = (os.getenv("TG_TOKEN") or os.getenv("BOT_TOKEN") or "").strip()
@@ -1053,7 +1059,7 @@ def main() -> int:
               "Проверь, что в файл или переменную попал именно токен, а не имя секрета.\n")
     if ":" not in token:
         print("Нужен токен тестового бота.\n"
-              "  Windows: положи его в widgets\\token.txt или запусти TESTBOT.bat\n"
+              "  Windows: положи его в token.txt рядом со скриптом или запусти TESTBOT.bat\n"
               "  иначе:   set TG_TOKEN=123456:AA...")
         return 1
     try:
@@ -1062,7 +1068,7 @@ def main() -> int:
         print("\nостановлен")
     except RuntimeError as exc:
         print(f"\nНе смог подключиться: {exc}")
-        print("Проверь интернет и токен (widgets\\token.txt или TG_TOKEN).")
+        print("Проверь интернет и токен (token.txt рядом со скриптом или TG_TOKEN).")
         return 1
     return 0
 

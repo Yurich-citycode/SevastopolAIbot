@@ -16,8 +16,7 @@ venv/
 # Notebooks
 .ipynb_checkpoints/
 
-# состояние тест-бота виджетов
-widgets/.passport.json
-
-# токен тест-бота виджетов
-widgets/token.txt
+# тест-бот виджетов: токен и прогресс
+testwidgetsbot/token.txt
+testwidgetsbot/.passport.json
+testwidgetsbot/widget_preview.html

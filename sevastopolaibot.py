@@ -139,13 +139,28 @@ def _download_xlsx(url: str) -> bytes:
     return content
 
 
-async def refresh_cache_once():
-    global LAST_CACHE_UPDATE
+LOCAL_XLSX = Path(__file__).resolve().with_name("Sevastopol AI База.xlsx")
+
+
+async def _open_excel():
+    """Копия из Google Sheets; если Google недоступен или таблица закрыта — локальный файл."""
     loop = asyncio.get_running_loop()
     url = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=xlsx"
     logger.info("🔄 Кэш: обновление из Google Sheets")
-    content = await loop.run_in_executor(None, _download_xlsx, url)
-    excel_file = await loop.run_in_executor(None, pd.ExcelFile, io.BytesIO(content))
+    try:
+        content = await loop.run_in_executor(None, _download_xlsx, url)
+        return await loop.run_in_executor(None, pd.ExcelFile, io.BytesIO(content))
+    except Exception as e:
+        if not LOCAL_XLSX.exists():
+            raise
+        logger.warning("Google Sheets недоступен (%s) — беру локальную копию %s", e, LOCAL_XLSX.name)
+        return await loop.run_in_executor(None, pd.ExcelFile, LOCAL_XLSX)
+
+
+async def refresh_cache_once():
+    global LAST_CACHE_UPDATE
+    loop = asyncio.get_running_loop()
+    excel_file = await _open_excel()
     try:
         sheets = {name.strip(): name for name in excel_file.sheet_names}
 

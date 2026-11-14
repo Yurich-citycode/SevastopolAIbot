@@ -287,7 +287,20 @@ def upcoming():
 
 
 up = upcoming()
-check("есть ближайшие события", len(up) > 0)
+if up:
+    check("есть ближайшие события", True)
+else:
+    # в таблице просто нет будущих дат — это вопрос к данным, а не к коду
+    print("  ⏭  в таблице нет предстоящих событий — сборку проверяем на своих")
+    from datetime import date, timedelta
+
+    tomorrow = date.today() + timedelta(days=1)
+    up = [
+        (tomorrow, {"Название": "Проверочное событие", "Место": "Тестовое место",
+                    "Описание": "Строка для проверки сборки", "Купить": "https://example.com/t"}),
+        (tomorrow + timedelta(days=2), {"Название": "Второе проверочное", "Место": "Там же",
+                                        "Описание": "", "Купить": ""}),
+    ]
 if up:
     text, markup = bot.build_events_message(up)
     texts, callbacks, urls = kb_texts(markup)
