@@ -56,6 +56,8 @@ PASSPORT_FILE = BASE / "widgets" / ".passport.json"
 TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
+VERSION = "1.13"
+
 API_ROOT = "https://api.telegram.org"
 API = API_ROOT + "/bot{token}/{method}"
 API_BETA = API_ROOT + "/beta/bot{token}/{method}"
@@ -833,7 +835,7 @@ def on_message(token: str, message: dict) -> None:
 
 def poll(token: str) -> int:
     me = call("getMe", token)
-    print(f"тест-бот виджетов: @{me.get('username')}")
+    print(f"тест-бот виджетов {VERSION}: @{me.get('username')}")
     print(f"данные: еда {len(CATALOG.food)} · локации {len(CATALOG.places)} · "
           f"события {len(CATALOG.events)} · маршруты {len(CATALOG.routes)}")
     if CATALOG.error:
@@ -936,6 +938,10 @@ def preview(target: Path) -> int:
 
 
 def main() -> int:
+    if "--version" in sys.argv:
+        print(f"testbotwidgets {VERSION}")
+        print("обновление: git -C папка_с_репозиторием reset --hard origin/main")
+        return 0
     if "--check" in sys.argv:
         return check()
     if "--preview" in sys.argv:

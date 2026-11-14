@@ -98,6 +98,25 @@ python testbotwidgets.py --check            :: размеры всех экра�
 python testbotwidgets.py --preview widgets  :: превью для браузера
 ```
 
+**Обновить код до последнего (если репозиторий уже скачан):**
+
+```bash
+git fetch origin main && git reset --hard origin/main
+python testbotwidgets.py --version     # покажет версию, например 1.13
+```
+
+В Colab то же самое, но `%cd` вместо `cd` — в блокноте `!cd` не переносится на
+следующую строку, поэтому обновление молча не срабатывает:
+
+```python
+%cd /content/SevastopolAIbot
+!git fetch -q origin main && git reset -q --hard origin/main
+!python testbotwidgets.py --version
+```
+
+После обновления **останови старый запуск** (⏹ слева от ячейки) и запусти
+заново: работающий процесс держит в памяти старый код, сколько его ни обновляй.
+
 **Дальше в Telegram:** найти своего тестового бота по юзернейму → Start.
 
 Если вместо карточки пришло обычное сообщение с кнопками — значит виджеты
