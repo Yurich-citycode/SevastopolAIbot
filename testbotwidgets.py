@@ -21,6 +21,11 @@
 
     python testbotwidgets.py --check          проверить размеры всех экранов
     python testbotwidgets.py --preview DIR    собрать предпросмотр в браузере
+    python testbotwidgets.py --beta           сразу через api.telegram.org/beta
+
+Виджеты Telegram пока раздаёт не всем ботам: обычный бот получает
+INPUT_MEDIA_WIDGET_NOT_ALLOWED. Код сам пробует бету и, если не пустили,
+показывает те же экраны обычными сообщениями с кнопками.
 
 Лимиты Telegram, под которые подогнан код:
   * HTML до 32 КБ, после сжатия zlib уровнем 9 — до 4 КБ;
@@ -38,6 +43,7 @@ import sys
 import time
 import zlib
 from datetime import datetime
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +56,10 @@ PASSPORT_FILE = BASE / "widgets" / ".passport.json"
 TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
-API = "https://api.telegram.org/bot{token}/{method}"
+API_ROOT = "https://api.telegram.org"
+API = API_ROOT + "/bot{token}/{method}"
+API_BETA = API_ROOT + "/beta/bot{token}/{method}"
+BETA = (os.getenv("TG_API_BETA") or "").strip().lower() in ("1", "true", "yes") or "--beta" in sys.argv
 TIMEOUT = 25
 
 MAX_ANSWER = 1024          # байт: столько Telegram отдаёт виджету за один ответ
@@ -75,14 +84,14 @@ FOOD_CATS = (
 
 # ────────────────────────────── Telegram API ──────────────────────────────
 
-def call(method: str, token: str, **params) -> Any:
+def call(method: str, token: str, beta: bool = False, **params) -> Any:
     """Один вызов Bot API с повторами: сеть до Telegram бывает капризной.
 
     На таймаут и обрыв пробуем ещё дважды — за это время связь обычно
     восстанавливается. Ответ «ok: false» (например, неверный токен) не
     повторяем: там повтор ничего не изменит.
     """
-    url = API.format(token=token, method=method)
+    url = (API_BETA if (beta or BETA) else API).format(token=token, method=method)
     problem = ""
 
     for attempt in range(3):
@@ -115,6 +124,10 @@ def send_message(token: str, chat_id: int, text: str) -> None:
     call("sendMessage", token, chat_id=chat_id, text=text, disable_web_page_preview=True)
 
 
+class WidgetsClosed(RuntimeError):
+    """Виджеты этому боту не разрешены — нужен запасной вариант интерфейса."""
+
+
 def send_widget(token: str, chat_id: int, state: dict, caption: str = "") -> int:
     """Отправляет виджет. Внутрь HTML данные не вшиваем: виджет сам спросит «boot»."""
     html = WIDGET_HTML.read_text(encoding="utf-8")
@@ -122,8 +135,7 @@ def send_widget(token: str, chat_id: int, state: dict, caption: str = "") -> int
     if packed > 4096:
         raise ValueError(f"виджет не влезает: {packed} байт после сжатия (лимит 4096)")
 
-    message = call(
-        "sendWidget", token,
+    payload = dict(
         chat_id=chat_id,
         html=html,
         caption=caption or "Тяни за строки — всё внутри этого сообщения",
@@ -131,6 +143,19 @@ def send_widget(token: str, chat_id: int, state: dict, caption: str = "") -> int
         height=420,
         chat_data=json.dumps({"k": "menu"}, ensure_ascii=False, separators=(",", ":")),
     )
+
+    try:
+        message = call("sendWidget", token, **payload)
+    except RuntimeError as exc:
+        text = str(exc)
+        if "WIDGET_NOT_ALLOWED" not in text:
+            raise
+        # виджеты пока раздают не всем ботам: пробуем бету
+        try:
+            message = call("sendWidget", token, beta=True, **payload)
+        except RuntimeError as second:
+            raise WidgetsClosed(str(second)) from second
+
     return int((message or {}).get("message_id") or 0)
 
 
@@ -599,6 +624,137 @@ def fit(screen: dict) -> str:
     return raw if len(raw.encode("utf-8")) <= MAX_ANSWER else json.dumps({"k": "menu", "t": "Начнём заново", "i": []}, ensure_ascii=False)
 
 
+# ─────────────────────── запасной вид: обычные сообщения с кнопками ───────────────────────
+
+def _e(value: Any) -> str:
+    """Экранирование для HTML: в названиях бывают & и <, из-за них Telegram ругается."""
+    return html_escape(str(value or ""), quote=False)
+
+
+def screen_text(screen: dict) -> str:
+    """Тот же экран, но текстом — если виджеты боту недоступны."""
+    kind = screen.get("k")
+    lines: list[str] = []
+
+    if kind == "menu":
+        lines.append(f"<b>{_e(screen.get('t'))}</b>")
+        if screen.get("s"):
+            lines.append(_e(screen["s"]))
+        for row in screen.get("i") or []:
+            lines.append(f"{row[1]} <b>{_e(row[2])}</b> — {_e(row[3])}")
+    elif kind == "list":
+        lines.append(f"<b>{_e(screen.get('t'))}</b>" + (f" · {_e(screen.get('s'))}" if screen.get("s") else ""))
+        for row in screen.get("i") or []:
+            lines.append(f"{row[1]} {_e(row[2])}" + (f"\n    <i>{_e(row[3])}</i>" if row[3] else ""))
+        if screen.get("pg"):
+            lines.append(f"\n<i>{_e(screen['pg'])}</i>")
+    elif kind == "card":
+        lines.append(f"<b>{_e(screen.get('t'))}</b>")
+        if screen.get("s"):
+            lines.append(_e(screen["s"]))
+        if screen.get("ch"):
+            lines.append(" · ".join(_e(chip) for chip in screen["ch"]))
+        if screen.get("d"):
+            lines.append("")
+            lines.append(_e(screen["d"]))
+        for pair in screen.get("m") or []:
+            lines.append(f"<b>{_e(pair[0])}:</b> {_e(pair[1])}")
+    elif kind == "pass":
+        lines.append(f"<b>{_e(screen.get('t'))}</b>")
+        lines.append(_e(screen.get("s")))
+        bar = "▰" * max(1, round((screen.get("pct") or 0) / 10)) + "▱" * max(0, 10 - round((screen.get("pct") or 0) / 10))
+        lines.append(bar)
+        for item in screen.get("st") or []:
+            lines.append(f"{_e(item[0])} — {_e(item[1])}")
+    elif kind == "route":
+        lines.append(f"<b>{_e(screen.get('t'))}</b>")
+        if screen.get("s"):
+            lines.append(_e(screen["s"]))
+        for item in screen.get("r") or []:
+            lines.append(f"{item['i']} <b>{_e(item['t'])}</b> — {item['min']} мин · "
+                         f"{str(item['km']).replace('.', ',')} км · {item['sc']}/100")
+
+    if screen.get("n"):
+        lines.append("")
+        lines.append(f"<i>{_e(screen['n'])}</i>")
+    return "\n".join(lines)[:3900]
+
+
+def screen_buttons(screen: dict) -> dict:
+    """Кнопки под текстом — те же действия, что в виджете."""
+    rows: list[list[dict]] = []
+    kind = screen.get("k")
+    items = screen.get("i") or []
+
+    if kind == "menu":
+        for start in range(0, len(items), 2):
+            rows.append([{"text": f"{item[1]} {item[2]}", "callback_data": "cb:" + item[0]}
+                         for item in items[start:start + 2]])
+    elif kind == "list":
+        for item in items:
+            rows.append([{"text": f"{item[1]} {item[2]}"[:60], "callback_data": "cb:" + item[0]}])
+        pager = []
+        if screen.get("prev"):
+            pager.append({"text": "‹", "callback_data": "cb:" + screen["prev"]})
+        if screen.get("next"):
+            pager.append({"text": "›", "callback_data": "cb:" + screen["next"]})
+        if pager:
+            rows.append(pager)
+    elif kind == "route":
+        for index, item in enumerate(items):
+            rows.append([{"text": f"{item['i']} {item['t']} · {item['min']} мин · {item['sc']}/100",
+                          "callback_data": f"cb:rp:{index}"}])
+
+    for button in screen.get("b") or []:
+        rows.append([{"text": button[1], "callback_data": "cb:" + button[0]}])
+    if not rows:
+        rows.append([{"text": "‹ меню", "callback_data": "cb:m"}])
+    return {"inline_keyboard": rows}
+
+
+def show_fallback(token: str, chat_id: int, state: dict, screen: dict | None = None) -> int:
+    """Отправляет экран обычным сообщением с кнопками и запоминает состояние."""
+    reply = call("sendMessage", token, chat_id=chat_id,
+                 text=screen_text(screen or build("m", state)),
+                 parse_mode="HTML",
+                 reply_markup=screen_buttons(screen or build("m", state)),
+                 disable_web_page_preview=True)
+    message_id = int((reply or {}).get("message_id") or 0)
+    if message_id:
+        SCREENS[(chat_id, message_id)] = state
+    return message_id
+
+
+def on_callback(token: str, callback: dict) -> None:
+    """Нажатие обычной кнопки — когда виджеты недоступны."""
+    data = str(callback.get("data") or "")
+    chat_id = int((callback.get("message") or {}).get("chat", {}).get("id") or 0)
+    message_id = int((callback.get("message") or {}).get("message_id") or 0)
+    user = callback.get("from") or {}
+
+    try:
+        call("answerCallbackQuery", token, callback_query_id=callback["id"])
+    except RuntimeError:
+        pass
+
+    if not data.startswith("cb:"):
+        return
+
+    state = SCREENS.get((chat_id, message_id)) or {
+        "steps": [], "user": int(user.get("id") or 0), "name": _text(user.get("first_name")) or "гость"
+    }
+    SCREENS[(chat_id, message_id)] = state
+
+    screen = build(data[3:], state)
+    try:
+        call("editMessageText", token, chat_id=chat_id, message_id=message_id,
+             text=screen_text(screen), parse_mode="HTML",
+             reply_markup=screen_buttons(screen), disable_web_page_preview=True)
+    except RuntimeError as exc:
+        if "not modified" not in str(exc).lower():
+            print("не обновил сообщение:", exc)
+
+
 # ────────────────────────────── обработчики ──────────────────────────────
 
 def on_widget_query(token: str, query: dict) -> None:
@@ -645,8 +801,12 @@ def on_message(token: str, message: dict) -> None:
         try:
             message_id = send_widget(token, chat_id, state)
             SCREENS[(chat_id, message_id)] = state
+        except WidgetsClosed as exc:
+            print(f"виджеты этому боту недоступны ({exc}) — показываю обычными кнопками")
+            show_fallback(token, chat_id, state)
         except (RuntimeError, ValueError) as exc:
-            send_message(token, chat_id, f"Виджет не отправился: {exc}")
+            print(f"виджет не отправился ({exc}) — показываю обычными кнопками")
+            show_fallback(token, chat_id, state)
         return
 
     if text.startswith("/паспорт") or text.startswith("/passport"):
@@ -683,7 +843,7 @@ def poll(token: str) -> int:
     while True:
         try:
             updates = call("getUpdates", token, offset=offset, timeout=30,
-                           allowed_updates=["message", "widget_query"])
+                           allowed_updates=["message", "widget_query", "callback_query"])
         except RuntimeError as exc:
             print("опрос не удался:", exc)
             time.sleep(3)
@@ -693,6 +853,8 @@ def poll(token: str) -> int:
             try:
                 if update.get("widget_query"):
                     on_widget_query(token, update["widget_query"])
+                elif update.get("callback_query"):
+                    on_callback(token, update["callback_query"])
                 elif update.get("message"):
                     on_message(token, update["message"])
             except Exception as exc:  # noqa: BLE001
