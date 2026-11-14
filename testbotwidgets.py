@@ -22,6 +22,7 @@
     python testbotwidgets.py --check          проверить размеры всех экранов
     python testbotwidgets.py --preview DIR    собрать предпросмотр в браузере
     python testbotwidgets.py --beta           сразу через api.telegram.org/beta
+    python testbotwidgets.py --test-widget    живая проверка: пустят виджет или нет
 
 Виджеты Telegram пока раздаёт не всем ботам: обычный бот получает
 INPUT_MEDIA_WIDGET_NOT_ALLOWED. Код сам пробует бету и, если не пустили,
@@ -56,7 +57,7 @@ PASSPORT_FILE = BASE / "widgets" / ".passport.json"
 TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
-VERSION = "1.13"
+VERSION = "1.14"
 
 API_ROOT = "https://api.telegram.org"
 API = API_ROOT + "/bot{token}/{method}"
@@ -876,6 +877,53 @@ def all_screens() -> dict[str, dict]:
     return screens
 
 
+def probe_widget(token: str) -> int:
+    """Живая проверка: пробуем отправить виджет обычным адресом и бетой, показываем ответ как есть."""
+    me = call("getMe", token)
+    print(f"бот: @{me.get('username')}")
+
+    chat_id = 0
+    try:
+        updates = call("getUpdates", token, offset=-1, timeout=0)
+    except RuntimeError as exc:
+        updates, chat_id = [], 0
+        print("апдейты не прочитались:", exc)
+    for update in reversed(updates or []):
+        holder = update.get("message") or (update.get("callback_query") or {}).get("message") or {}
+        found = (holder.get("chat") or {}).get("id")
+        if found:
+            chat_id = int(found)
+            break
+
+    if not chat_id:
+        print("\nНе вижу, куда отправлять. Открой бота в Telegram, нажми /start и запусти проверку снова.")
+        return 1
+
+    html = WIDGET_HTML.read_text(encoding="utf-8")
+    payload = dict(chat_id=chat_id, html=html, caption="Проверка виджета",
+                   allow_queries=True, height=420,
+                   chat_data=json.dumps({"k": "menu"}, ensure_ascii=False, separators=(",", ":")))
+
+    print(f"\nHTML {len(html.encode('utf-8'))} байт, после сжатия "
+          f"{len(zlib.compress(html.encode('utf-8'), 9))} байт (лимиты 32768 и 4096)")
+
+    for label, beta in (("обычный адрес api.telegram.org", False),
+                        ("бета-адрес api.telegram.org/beta", True)):
+        print(f"\n{label}:")
+        try:
+            message = call("sendWidget", token, beta=beta, **payload)
+            print(f"  принято, message_id {(message or {}).get('message_id')}")
+            print("  открой Telegram — карточка должна быть в чате")
+            return 0
+        except RuntimeError as exc:
+            print(f"  отказ: {exc}")
+
+    print("\nИтог: виджеты этому боту сейчас не выданы — оба адреса отказали.")
+    print("Код и токен тут ни при чём: Telegram пускает в новинку не всех ботам.")
+    print("Работающий вариант — обычные сообщения с кнопками: python testbotwidgets.py")
+    return 1
+
+
 def check() -> int:
     html = WIDGET_HTML.read_text(encoding="utf-8")
     raw = len(html.encode("utf-8"))
@@ -942,6 +990,14 @@ def main() -> int:
         print(f"testbotwidgets {VERSION}")
         print("обновление: git -C папка_с_репозиторием reset --hard origin/main")
         return 0
+    if "--test-widget" in sys.argv:
+        token = (os.getenv("TG_TOKEN") or os.getenv("BOT_TOKEN") or "").strip()
+        if ":" not in token and TOKEN_FILE.exists():
+            token = TOKEN_FILE.read_text(encoding="utf-8").strip()
+        if ":" not in token:
+            print("Нужен токен: widgets\\token.txt или переменная TG_TOKEN.")
+            return 1
+        return probe_widget(token)
     if "--check" in sys.argv:
         return check()
     if "--preview" in sys.argv:
