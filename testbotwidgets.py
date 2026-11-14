@@ -57,7 +57,7 @@ PASSPORT_FILE = BASE / "widgets" / ".passport.json"
 TOKEN_FILE = BASE / "widgets" / "token.txt"
 MAP_URL = (os.getenv("ALIVE_MAP_URL") or "http://localhost:8080").rstrip("/")
 
-VERSION = "1.14"
+VERSION = "1.15"
 
 API_ROOT = "https://api.telegram.org"
 API = API_ROOT + "/bot{token}/{method}"
@@ -812,6 +812,15 @@ def on_message(token: str, message: dict) -> None:
             show_fallback(token, chat_id, state)
         return
 
+    if text.startswith("/testwidget") or text.startswith("/виджет"):
+        ok, lines = try_widget(token, chat_id)
+        tail = ("\n\nЗначит виджеты этому боту открыты. Запусти бота так: "
+                "python testbotwidgets.py --beta" if ok else
+                "\n\nЗначит виджеты этому боту не выданы: Telegram пускает в новинку не всех ботам. "
+                "Ниже — обычный интерфейс на кнопках, он работает.")
+        send_message(token, chat_id, "Проверка виджета\n" + "\n".join(lines) + tail)
+        return
+
     if text.startswith("/паспорт") or text.startswith("/passport"):
         card = passport_of(int(user.get("id") or 0))
         xp = int(card.get("xp", 0))
@@ -877,8 +886,30 @@ def all_screens() -> dict[str, dict]:
     return screens
 
 
+def try_widget(token: str, chat_id: int, caption: str = "Проверка виджета") -> tuple[bool, list[str]]:
+    """Пробует отправить виджет обычным адресом и бетой. Возвращает получилось ли и строки отчёта."""
+    html = WIDGET_HTML.read_text(encoding="utf-8")
+    packed = len(zlib.compress(html.encode("utf-8"), 9))
+    lines = [f"HTML {len(html.encode('utf-8'))} байт, после сжатия {packed} байт (лимиты 32768 и 4096)"]
+
+    payload = dict(chat_id=chat_id, html=html, caption=caption,
+                   allow_queries=True, height=420,
+                   chat_data=json.dumps({"k": "menu"}, ensure_ascii=False, separators=(",", ":")))
+
+    for label, beta in (("обычный адрес", False), ("бета-адрес", True)):
+        try:
+            message = call("sendWidget", token, beta=beta, **payload)
+        except RuntimeError as exc:
+            lines.append(f"{label}: отказ — {exc}")
+            continue
+        lines.append(f"{label}: принято, message_id {(message or {}).get('message_id')}")
+        return True, lines
+
+    return False, lines
+
+
 def probe_widget(token: str) -> int:
-    """Живая проверка: пробуем отправить виджет обычным адресом и бетой, показываем ответ как есть."""
+    """Живая проверка из консоли: ищем чат сами и печатаем ответ Telegram как есть."""
     me = call("getMe", token)
     print(f"бот: @{me.get('username')}")
 
@@ -886,8 +917,11 @@ def probe_widget(token: str) -> int:
     try:
         updates = call("getUpdates", token, offset=-1, timeout=0)
     except RuntimeError as exc:
-        updates, chat_id = [], 0
-        print("апдейты не прочитались:", exc)
+        print(f"обновления не читаются: {exc}\n"
+              "Скорее всего бот сейчас запущен и забирает их себе.\n"
+              "Не останавливая бота, напиши ему в Telegram: /testwidget")
+        return 1
+
     for update in reversed(updates or []):
         holder = update.get("message") or (update.get("callback_query") or {}).get("message") or {}
         found = (holder.get("chat") or {}).get("id")
@@ -899,24 +933,12 @@ def probe_widget(token: str) -> int:
         print("\nНе вижу, куда отправлять. Открой бота в Telegram, нажми /start и запусти проверку снова.")
         return 1
 
-    html = WIDGET_HTML.read_text(encoding="utf-8")
-    payload = dict(chat_id=chat_id, html=html, caption="Проверка виджета",
-                   allow_queries=True, height=420,
-                   chat_data=json.dumps({"k": "menu"}, ensure_ascii=False, separators=(",", ":")))
-
-    print(f"\nHTML {len(html.encode('utf-8'))} байт, после сжатия "
-          f"{len(zlib.compress(html.encode('utf-8'), 9))} байт (лимиты 32768 и 4096)")
-
-    for label, beta in (("обычный адрес api.telegram.org", False),
-                        ("бета-адрес api.telegram.org/beta", True)):
-        print(f"\n{label}:")
-        try:
-            message = call("sendWidget", token, beta=beta, **payload)
-            print(f"  принято, message_id {(message or {}).get('message_id')}")
-            print("  открой Telegram — карточка должна быть в чате")
-            return 0
-        except RuntimeError as exc:
-            print(f"  отказ: {exc}")
+    ok, lines = try_widget(token, chat_id)
+    print()
+    print("\n".join(lines))
+    if ok:
+        print("\nКарточка должна быть в чате. Запускать бота можно с --beta.")
+        return 0
 
     print("\nИтог: виджеты этому боту сейчас не выданы — оба адреса отказали.")
     print("Код и токен тут ни при чём: Telegram пускает в новинку не всех ботам.")
